@@ -1,0 +1,102 @@
+#!/bin/bash
+#
+# makes full backup of all sensitive file and db data
+#
+
+
+set -e
+
+usage() {
+    cat << EOF
+usage:
+    ${0##*/} SRV_ID [IS_INCR]
+
+makes full or incremental (if IS_INCR is set) backup 
+of all sensitive files and databases
+
+Examples
+
+full file and db backup:
+    ${0##*/} wmdemo
+
+incremental file and db backup:
+    ${0##*/} wmdemo incr
+EOF
+    exit 1
+}
+
+do_backup() {
+    #backup-file /etc etc
+    #backup-file /var/log var-log
+    #backup-file /var/mail var-mail
+    #backup-file /var/www var-www
+    #backup-file /home home
+    #backup-file /root root
+    #backup-file /usr/local usr-local
+    #scp-file etc $1
+    #scp-file var-log $1
+    #scp-file var-mail $1
+    #scp-file var-www $1
+    #scp-file home $1
+    #scp-file root $1
+    #scp-file usr-local $1
+    backup_files /home/sasa/workspace.backup-scripts/test test
+}
+
+# examples:
+#   backup_files /var/log var-log
+backup_files() {
+    local SRC=$1
+    local DST=$2
+
+    local BACKUP=$DST.inc.1.dar #incremental backup
+    if [[ -z $PREV_DATE ]]; then # full backup
+        BACKUP=$DST.1.dar
+    fi
+
+    backup-files $SRC $DST $DATE $PREV_DATE
+    backup-scp files $BACKUP $SRV_ID $DATE    
+}
+
+# examples:
+#   backup_db kartawm user pass
+backup_db() {
+    local DB=$1
+    local USER=$2
+    local PASS=$3
+    local BACKUP=$DB.sql.diff.bz2 #incremental backup
+    if [[ -z $PREV_DATE ]]; then # full backup
+        BACKUP=$DB.sql.bz2
+    fi
+
+    backup-db $DB $USER $PASS $DATE $PREV_DATE
+    backup-scp db $BACKUP $SRV_ID $DATE
+}
+
+get_last_backup_date() {
+    cat $TMP_DIR/.last
+}
+
+set_last_backup_date() {
+    echo $1 > $TMP_DIR/.last
+}
+
+SRV_ID=$1
+IS_INCR=$2
+DATE=`date -I`  # date -I shows current date in YYYY-MM-DD format
+PREV_DATE=      # full backup by default
+
+if [[ -z $SRV_ID ]]; then
+    usage
+fi
+
+if [[ $IS_INCR ]]; then # incremental backup
+    PREV_DATE=`get_last_backup_date`
+fi
+
+. ./backup-options
+
+do_backup
+
+set_last_backup_date $DATE
+

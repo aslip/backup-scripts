@@ -1,0 +1,18 @@
+#!/bin/bash
+#
+# all backup options in one place
+#
+# usage: . backup-options
+
+set -e
+
+TMP_DIR=/var/backup
+
+# don’t compress <256B files; 
+# use bzip compression; 
+# ignore *.dar files
+DAR_OPTIONS='-m 256 -y -P *.dar'
+
+# this will be passed directly to scp as a server, i.e. `scp xxx $SERVER:yyy`
+SERVER=user@host
+
