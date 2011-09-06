@@ -40,7 +40,13 @@ do_backup() {
     #scp-file home $1
     #scp-file root $1
     #scp-file usr-local $1
+
+    local EXCLUDE_TABLES="karta_cache karta_cache_block karta_cache_content
+        karta_cache_filter karta_cache_form karta_cache_menu karta_cache_page
+        karta_cache_update karta_cache_views karta_cache_views_data karta_cache_webmarket"
+
     backup_files /home/aslipchenko/workspace.backup-scripts/backup-scripts/test/test test
+    #backup_db karta root - "$EXCLUDE_TABLES"
 }
 
 # examples:
@@ -49,26 +55,30 @@ backup_files() {
     local SRC=$1
     local DST=$2
 
-    local BACKUP=$DST.inc.1.dar #incremental backup
-    if [[ -z $PREV_DATE ]]; then # full backup
-        BACKUP=$DST.1.dar
-    fi
-
     backup-files $SRC $DST $DATE $PREV_DATE
 }
 
 # examples:
 #   backup_db kartawm user pass
+#   backup_db kartawm user - --ignore-table=kartawm.some_table
 backup_db() {
     local DB=$1
     local USER=$2
     local PASS=$3
-    local BACKUP=$DB.sql.diff.bz2 #incremental backup
-    if [[ -z $PREV_DATE ]]; then # full backup
-        BACKUP=$DB.sql.bz2
-    fi
+    local EXCLUDE_TABLES=$4
+    local XTRA_OPT=$5 
 
-    backup-db $DB $USER $PASS $DATE $PREV_DATE
+    backup-db $DB $USER $PASS $DATE $PREV_DATE \
+        "`make_ignore_table_option "$EXCLUDE_TABLES" $DB` $XTRA_OPT"
+}
+
+make_ignore_table_option() {
+    local TABLES=$1
+    local DB=$2
+    for table in $TABLES; do
+        # no trailing newline
+        echo -n "--ignore-table=$DB.$table "
+    done
 }
 
 scp_all() {
@@ -88,7 +98,7 @@ set_last_backup_date() {
 SRV_ID=$1
 IS_INCR=$2
 DATE=`date -I`  # date -I shows current date in YYYY-MM-DD format
-PREV_DATE=      # full backup by default
+PREV_DATE=-     # full backup by default
 
 if [[ -z $SRV_ID ]]; then
     usage

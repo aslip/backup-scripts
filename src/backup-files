@@ -6,7 +6,7 @@ set -e
 usage() {
     cat << EOF
 usage: 
-    ${0##*/} DIR DST DATE [PREV_DATE]
+    ${0##*/} DIR DST DATE PREV_DATE
 
 makes full backup of DIR to TMP_DIR/DATE/files/DST.1.dar 
 or incremental backup of DIR against TMP_DIR/PREV_DATE/files/DST.1.dar
@@ -17,11 +17,13 @@ TMP_DIR is set in ./backup-options
 TMP_DIR/.last has the date of the last backup';' all
 successive incremental backups will be performed against it
 
+use "-" as PREV_DATE to make a full backup
+
 
 Examples
 
-full backup:
-    ${0##*/} /var/log var-log 2011-09-01
+full backup, note the "-" in PREV_DATE place:
+    ${0##*/} /var/log var-log 2011-09-01 -
 
 incremental backup against a full backup:
     ${0##*/} /var/log var-log 2011-09-02 2011-09-01
@@ -37,28 +39,33 @@ DST=$2
 DATE=$3
 PREV_DATE=$4 # only for incremental backup
 
-if [[ -z $SRC || -z $DST  || -z $DATE ]]; then
+if [[ -z $SRC || -z $DST  || -z $DATE || -z $PREV_DATE ]]; then
     usage
 fi
 
 . ./backup-options
 
-BACKUP=$TMP_DIR/$DATE/files/$DST
+if [[ "$PREV_DATE" != "-" ]]; then
+    IS_INCR=1
+fi
 
 mkdir -p $TMP_DIR/$DATE/files
 
-if [[ -z $PREV_DATE ]]; then
+BACKUP=$TMP_DIR/$DATE/files/$DST
+
+if [[ ! $IS_INCR ]]; then
     # full backup
     dar $DAR_OPTIONS -R $SRC -c $BACKUP
 else
     # incremental backup
+
+    BACKUP=$BACKUP.inc
 
     INCR_SRC=$TMP_DIR/$PREV_DATE/files/$DST # against a full backup by default
     if [[ -e $INCR_SRC.inc.1.dar ]]; then # against an incremental backup
         INCR_SRC=$INCR_SRC.inc
     fi
 
-    BACKUP=$BACKUP.inc
     dar $DAR_OPTIONS -R $SRC -c $BACKUP -A $INCR_SRC
 fi
 
