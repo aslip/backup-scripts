@@ -1,0 +1,26 @@
+#!/bin/bash
+
+dump_to() {
+    local DST=$1
+
+    # -q (quick) - dump one row at a time, without buffering
+    # -Q - quote names with `
+    # --create-options - dump mysql-specific options for create statements
+    # --skip-dump-date - omit dump date from the last comment in dump ("Dump completed on ...")
+    #                       to simplify auto tests
+    local OPT="\
+    --create-options 
+        --set-charset 
+        --skip-extended-insert
+        --skip-dump-date
+        --max-allowed-packet=8M -Qq"
+
+    if [[ $PASS != - ]]; then
+        # with password
+        mysqldump $OPT $XTRA_OPT -u"$USER" -p"$PASS" "$DB" > "$DST"
+    else
+        # without password
+        mysqldump $OPT $XTRA_OPT -u"$USER" "$DB" > "$DST"
+    fi
+}
+

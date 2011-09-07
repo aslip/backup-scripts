@@ -45,8 +45,11 @@ do_backup() {
         karta_cache_filter karta_cache_form karta_cache_menu karta_cache_page
         karta_cache_update karta_cache_views karta_cache_views_data karta_cache_webmarket"
 
-    backup_files /home/aslipchenko/workspace.backup-scripts/backup-scripts/test/test test
-    #backup_db karta root - "$EXCLUDE_TABLES"
+    # always backup db first!
+    # we can tolerate files that are ahead of db, but
+    # we can't tolerate db that is ahead of files
+    backup_db karta root - "$EXCLUDE_TABLES"
+    #backup_files /home/aslipchenko/workspace.backup-scripts/backup-scripts/test/test test
 }
 
 # examples:
@@ -97,8 +100,8 @@ set_last_backup_date() {
 
 SRV_ID=$1
 IS_INCR=$2
-DATE=`date -I`  # date -I shows current date in YYYY-MM-DD format
-PREV_DATE=-     # full backup by default
+DATE=${DATE:-`date -I`}     # use supplied date (helps in auto testing) or the current date in YYYY-MM-DD format
+PREV_DATE=-                 # full backup by default
 
 if [[ -z $SRV_ID ]]; then
     usage
