@@ -40,7 +40,7 @@ do_backup() {
     #scp-file home $1
     #scp-file root $1
     #scp-file usr-local $1
-    backup_files /home/sasa/workspace.backup-scripts/test test
+    backup_files /home/aslipchenko/workspace.backup-scripts/backup-scripts/test/test test
 }
 
 # examples:
@@ -55,7 +55,6 @@ backup_files() {
     fi
 
     backup-files $SRC $DST $DATE $PREV_DATE
-    backup-scp files $BACKUP $SRV_ID $DATE    
 }
 
 # examples:
@@ -70,7 +69,12 @@ backup_db() {
     fi
 
     backup-db $DB $USER $PASS $DATE $PREV_DATE
-    backup-scp db $BACKUP $SRV_ID $DATE
+}
+
+scp_all() {
+    # copy recursively; - this is the only way to make dirs with scp
+    # preserve access, modify times, modes etc;
+    scp -rp $TMP_DIR/$DATE $SERVER:/$SRV_ID
 }
 
 get_last_backup_date() {
@@ -90,13 +94,14 @@ if [[ -z $SRV_ID ]]; then
     usage
 fi
 
+. ./backup-options
+
 if [[ $IS_INCR ]]; then # incremental backup
     PREV_DATE=`get_last_backup_date`
 fi
 
-. ./backup-options
-
 do_backup
+scp_all
 
 set_last_backup_date $DATE
 
