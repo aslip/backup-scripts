@@ -1,0 +1,4 @@
+# vim: set ft=sh:
+
+backup_files "$TEST_DIR/$FILES_DIR" "$BACKUP_FILES_ID"
+

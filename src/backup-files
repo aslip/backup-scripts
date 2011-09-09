@@ -43,7 +43,8 @@ if [[ -z $SRC || -z $DST  || -z $DATE || -z $PREV_DATE ]]; then
     usage
 fi
 
-. ./backup-options
+BACKUP_OPTIONS_FILE="${BACKUP_OPTIONS:-"."}/options"
+. "$BACKUP_OPTIONS_FILE"
 
 if [[ "$PREV_DATE" != "-" ]]; then
     IS_INCR=1

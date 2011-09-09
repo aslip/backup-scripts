@@ -31,10 +31,13 @@ if [[ -z $DB || -z $USER || -z $PASS || -z $DATE || -z $PREV_DATE ]]; then
     usage
 fi
 
-# contains dump_to $DST function, it is shared to help in testing
-. ./backup-dump
+MY_DIR=`dirname "$(readlink -f "$0")"`
 
-. ./backup-options
+# contains dump_to $DST function, it is shared to help in testing
+. "$MY_DIR/functions"
+
+BACKUP_OPTIONS_FILE="${BACKUP_OPTIONS:-"."}/options"
+. "$BACKUP_OPTIONS_FILE"
 
 if [[ $PREV_DATE != - ]]; then
     IS_INCR=1

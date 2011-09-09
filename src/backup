@@ -14,6 +14,10 @@ usage:
 makes full or incremental (if IS_INCR is set) backup 
 of all sensitive files and databases
 
+options are read from a dir specified by BACKUP_OPTIONS variable
+i.e.
+    BACKUP_OPTIONS=~/backup-options/ ${0##*/} wmdemo
+
 Examples
 
 full file and db backup:
@@ -25,32 +29,8 @@ EOF
     exit 1
 }
 
-do_backup() {
-    #backup-file /etc etc
-    #backup-file /var/log var-log
-    #backup-file /var/mail var-mail
-    #backup-file /var/www var-www
-    #backup-file /home home
-    #backup-file /root root
-    #backup-file /usr/local usr-local
-    #scp-file etc $1
-    #scp-file var-log $1
-    #scp-file var-mail $1
-    #scp-file var-www $1
-    #scp-file home $1
-    #scp-file root $1
-    #scp-file usr-local $1
-
-    local EXCLUDE_TABLES="karta_cache karta_cache_block karta_cache_content
-        karta_cache_filter karta_cache_form karta_cache_menu karta_cache_page
-        karta_cache_update karta_cache_views karta_cache_views_data karta_cache_webmarket"
-
-    # always backup db first!
-    # we can tolerate files that are ahead of db, but
-    # we can't tolerate db that is ahead of files
-    backup_db karta root - "$EXCLUDE_TABLES"
-    #backup_files /home/aslipchenko/workspace.backup-scripts/backup-scripts/test/test test
-}
+MY_DIR=`dirname "$(readlink -f "$0")"`
+. "$MY_DIR/functions"
 
 # examples:
 #   backup_files /var/log var-log
@@ -73,15 +53,6 @@ backup_db() {
 
     backup-db $DB $USER $PASS $DATE $PREV_DATE \
         "`make_ignore_table_option "$EXCLUDE_TABLES" $DB` $XTRA_OPT"
-}
-
-make_ignore_table_option() {
-    local TABLES=$1
-    local DB=$2
-    for table in $TABLES; do
-        # no trailing newline
-        echo -n "--ignore-table=$DB.$table "
-    done
 }
 
 scp_all() {
@@ -107,13 +78,19 @@ if [[ -z $SRV_ID ]]; then
     usage
 fi
 
-. ./backup-options
+BACKUP_OPTIONS=${BACKUP_OPTIONS:-"."}
+
+. "$BACKUP_OPTIONS/options"
 
 if [[ $IS_INCR ]]; then # incremental backup
     PREV_DATE=`get_last_backup_date`
 fi
 
-do_backup
+# always backup db first!
+# we can tolerate files that are ahead of db, but
+# we can't tolerate db that is ahead of files
+. "$BACKUP_OPTIONS/backup-db"
+. "$BACKUP_OPTIONS/backup-files"
 scp_all
 
 set_last_backup_date $DATE

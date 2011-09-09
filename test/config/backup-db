@@ -1,0 +1,11 @@
+# vim: set ft=sh:
+
+#EXCLUDE_TABLES="karta_cache karta_cache_block karta_cache_content
+#    karta_cache_filter karta_cache_form karta_cache_menu karta_cache_page
+#    karta_cache_update karta_cache_views karta_cache_views_data karta_cache_webmarket"
+#backup_db kartawm backup password "$EXCLUDE_TABLES"
+
+
+EXCLUDE_TABLES="$BACKUP_EXCLUDE_TABLES"
+backup_db backup_test root - "$EXCLUDE_TABLES"
+
