@@ -38,7 +38,7 @@ backup_files() {
     local SRC=$1
     local DST=$2
 
-    backup-files $SRC $DST $DATE $PREV_DATE
+    backup-files "$SRC" "$DST" "$DATE" "$PREV_DATE"
 }
 
 # examples:
@@ -51,22 +51,27 @@ backup_db() {
     local EXCLUDE_TABLES=$4
     local XTRA_OPT=$5 
 
-    backup-db $DB $USER $PASS $DATE $PREV_DATE \
-        "`make_ignore_table_option "$EXCLUDE_TABLES" $DB` $XTRA_OPT"
+    local IGNORE_TABLE_OPT=`make_ignore_table_option "$EXCLUDE_TABLES" "$DB"`
+
+    backup-db "$DB" "$USER" "$PASS" "$DATE" "$PREV_DATE" \
+        "$IGNORE_TABLE_OPT $XTRA_OPT"
 }
 
 scp_all() {
+    # see http://dennisthomsen.dk/2010/07/scp-ambiguous-target/
+    # basically, if scp destination has spaces, they should be escaped by backslash
+    local ESCAPED_SRV_ID=`echo "$SRV_ID" | perl -pe 's/ /\\\\ /g'` # backslash should be quoted inside backquotes
     # copy recursively; - this is the only way to make dirs with scp
-    # preserve access, modify times, modes etc;
-    scp -rp $TMP_DIR/$DATE $SERVER:/$SRV_ID
+    # preserve access times, modify times, modes etc;
+    scp -rp "$TMP_DIR/$DATE" "$SERVER:/$ESCAPED_SRV_ID"
 }
 
 get_last_backup_date() {
-    cat $TMP_DIR/.last
+    cat "$TMP_DIR/.last"
 }
 
 set_last_backup_date() {
-    echo $1 > $TMP_DIR/.last
+    echo "$1" > "$TMP_DIR/.last"
 }
 
 SRV_ID=$1
@@ -93,5 +98,5 @@ fi
 . "$BACKUP_OPTIONS/backup-files"
 scp_all
 
-set_last_backup_date $DATE
+set_last_backup_date "$DATE"
 

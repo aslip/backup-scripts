@@ -50,13 +50,13 @@ if [[ "$PREV_DATE" != "-" ]]; then
     IS_INCR=1
 fi
 
-mkdir -p $TMP_DIR/$DATE/files
+mkdir -p "$TMP_DIR/$DATE/files"
 
-BACKUP=$TMP_DIR/$DATE/files/$DST
+BACKUP="$TMP_DIR/$DATE/files/$DST"
 
 if [[ ! $IS_INCR ]]; then
     # full backup
-    dar $DAR_OPTIONS -R $SRC -c $BACKUP
+    dar $DAR_OPTIONS -R "$SRC" -c "$BACKUP"
 else
     # incremental backup
 
@@ -67,6 +67,6 @@ else
         INCR_SRC=$INCR_SRC.inc
     fi
 
-    dar $DAR_OPTIONS -R $SRC -c $BACKUP -A $INCR_SRC
+    dar $DAR_OPTIONS -R "$SRC" -c "$BACKUP" -A "$INCR_SRC"
 fi
 
