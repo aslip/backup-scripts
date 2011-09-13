@@ -1,0 +1,10 @@
+#!/bin/bash
+
+abs_path() {
+    case $@ in
+       -*) FILE=./$@ ;;
+       *)  FILE=$@   ;;
+    esac
+    echo `readlink -f "$FILE"`
+}
+

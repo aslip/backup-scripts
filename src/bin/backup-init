@@ -1,0 +1,22 @@
+#!/bin/bash
+
+. "`backup-include util`"
+
+get_last_backup_date() {
+    cat "$TMP_DIR/.last"
+}
+
+set_last_backup_date() {
+    echo "$1" > "$TMP_DIR/.last"
+}
+
+# ensure that TMP_DIR is absolute, use /var/backup by default
+TMP_DIR=${TMP_DIR:-/var/backup}
+export TMP_DIR=`abs_path "$TMP_DIR"`
+
+# inctemental backups magic
+export DATE=${DATE:-`date -I`} # allow setting DATE manually for tests
+export PREV_DATE=`get_last_backup_date`
+
+set_last_backup_date "$DATE"
+

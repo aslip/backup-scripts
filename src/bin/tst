@@ -1,0 +1,9 @@
+. "`backup-include mysql`"
+rm -r tmp
+mkdir -p tmp
+pushd $PWD
+cd tmp
+set -x
+backup_db_full backup_test root '' "`ignore_table_opt backup_test 'table2 table3'`" '-tmp s.sql' '-keep s.tmp.sql'
+backup_db_incr backup_test root '' "`ignore_table_opt backup_test 'table2 table3'`" '-keep s.tmp.sql' '-new s.tmp.sql' '-tmp s.sql.diff'
+popd

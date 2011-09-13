@@ -1,0 +1,100 @@
+#!/bin/bash -x
+
+set -e 
+
+usage()
+{
+cat << EOF
+Makes a backup of a mysql database.
+
+Usage
+    ${0##*/} database username password [destination] [options]
+
+Options
+    --extra-opt opts
+        Extra options to pass to mysqldump. Multiple options are permitted.
+
+    --ignore tables
+        List of tables to ignore, separated by spaces. Multiple options are permitted.
+
+    --incremental, -i
+        Make an incremental backup; valid only in automated mode
+
+    -o filename
+        Output filename; valid only in manual mode
+
+Notes
+    Automated backup is placed into TMP_DIR/DATE/db/database.sql.bz2 file, where TMP_DIR is a
+    user-defined environment variable and DATE is current date in YYYY-MM-DD format.
+
+Examples
+    manual backup:
+        ${0##*/} karta kartauser '' --ignore 'cache cache_content' -o /path/to/backup.sql
+        
+    automated backup:
+        ${0##*/} karta kartauser '' --ignore cache --ignore cache_content
+
+    automated incremental backup:
+        ${0##*/} karta kartauser '' --ignore 'cache cache_content' --incremental
+
+    extra options:
+        ${0##*/} karta kartauser '' --ignore 'cache cache_content' --extra-opt='-Cqu --comments' --extra-opt='--help'
+EOF
+    exit 1
+}
+
+
+# parse parameters
+. "`backup-include util`"
+
+me=$(basename "`abs_path "$0"`")
+
+if (($# < 3)); then usage; fi
+
+db=$1
+user=$2
+pass=$3
+shift 3
+
+opt=`getopt -n"$me" --longoptions="extra-opt: ignore: incremental" "o:i" "$@"` || exit 1
+eval set -- $opt
+while (($# > 0)); do
+    case $1 in
+        --extra-opt)
+            extra_opt=${extra_opt+"$extra_opt "}$2; shift;; # separate multiple extra_opt with space
+        --ignore) 
+            ignore=${ignore+"$ignore "}$2; shift;;
+        --incremental|-i) 
+            incremental=1;;
+        -o)
+            output=$2; shift;;
+    esac
+    shift
+done
+
+
+# handle
+
+. "`backup-include mysql`"
+
+if [[ $ignore ]]; then
+    extra_opt="`ignore_table_opt "$db" "$ignore"` $extra_opt"
+fi
+
+if [[ ! -z $output ]]; then 
+    # manual backup
+    backup_db_full "$db" "$user" "$pass" "$extra_opt" "$output"
+else 
+    # automated backup
+    if (($incremental == 1)); then
+        old="$TMP_DIR/.sql/$PREV_DATE/$db.sql"
+        new="$TMP_DIR/.sql/$DATE/$db.sql"
+        dst="$TMP_DIR/$DATE/db/$db.sql.inc"
+        backup_db_incr "$db" "$user" "$pass" "$extra_opt" "$old" "$new" "$dst"
+    else
+        keep="$TMP_DIR/.sql/$DATE/$db.sql"
+        dst="$TMP_DIR/$DATE/db/$db.sql"
+        backup_db_full "$db" "$user" "$pass" "$extra_opt" "$dst" "$keep"
+    fi
+fi
+

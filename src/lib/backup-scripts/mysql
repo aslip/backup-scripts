@@ -1,0 +1,105 @@
+# vim: set ft=sh:
+
+. "`backup-include util`"
+
+
+# dumps a mysql database to the specified file using proper mysqldump options
+#
+# usage:
+#   dump_db $DB $USER $PASS $XTRA_OPT $DST
+dump_db() {
+    local db=$1
+    local user=$2
+    local pass=$3
+    local extra_opt=$4
+    local dst=$5
+
+    # -q (quick) - dump one row at a time, without buffering
+    # -Q - quote names with `
+    # --create-options - dump mysql-specific options for create statements
+    # --skip-dump-date - omit dump date from the last comment in dump file
+    #                       (i.e. "Dump completed on ...") to simplify tests
+    local opt="\
+    --create-options 
+        --set-charset 
+        --skip-extended-insert
+        --skip-dump-date
+        --max-allowed-packet=8M -Qq"
+
+    # eval ... $pass_opt is not safe unless we properly quote $user and other vars
+    # ${var:+expr_if_not_null} is way better
+    mysqldump $opt $extra_opt -u"$user" ${pass:+"-p$pass"} "$db" > "$dst"
+}
+
+
+# makes a list of mysqldump ignore-table options from a list
+# of names of tables to be ignored and a database name
+#
+# example:
+#   ignore_table_opt database "table1 table2"
+# will output
+#   --ignore-table=database.table1 --ignore-table=database.table2
+ignore_table_opt() {
+    local db=$1
+    local tables=$2
+    for table in $tables; do
+        # no trailing newline
+        echo -n "--ignore-table=$db.$table "
+    done
+}
+
+
+# usage:
+#   backup_db_full db user pass opt dst [keep]
+backup_db_full() {
+    local db=$1
+    local user=$2
+    local pass=$3
+    local extra_opt=$4
+    local dst=$5
+    local keep=$6
+
+    dump_db "$db" "$user" "$pass" "$extra_opt" "$dst"
+    if [[ -z $keep ]]; then # don't keep the dump
+        bzip2 -- "$dst"
+    else # keep the dump as $keep
+        local dst=`abs_path "$dst"` # mv & leading dash
+        local keep=`abs_path "$keep"`
+        bzip2 -kc -- "$dst" > "$dst.bz2"
+        mv "$dst" "$keep"
+    fi
+}
+
+
+# usage:
+#   backup_db_incr db user pass opt old new dst
+backup_db_incr() {
+    local db=$1
+    local user=$2
+    local pass=$3
+    local extra_opt=$4
+    local old=$5
+    local new=$6
+    local dst=$7
+
+    local old=`abs_path "$old"` # avoid diff & leading dash
+    local new=`abs_path "$new"` # -//-
+
+    dump_db "$db" "$user" "$pass" "$extra_opt" "$new"
+
+    # create an edit script
+    set +e # diff may return 1 on success: 0 means no differences, 1 means some, 2 means error
+    diff -e --speed-large-files "$old" "$new" > "$dst"
+    if (($? == 2)); then
+        exit 1
+    fi
+    set -e
+    echo -e "w\nq" >> "$dst"
+
+    # compress it
+    bzip2 -- "$dst" # we can't make anything useful with an incremental db backup, so don't keep it uncompressed
+
+    # we don't need the old dump anymore, but note that we kept the new one (for subsequent incr. backups)
+    rm "$old"
+}
+

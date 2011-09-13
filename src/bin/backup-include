@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# usage:
+#   source "`backup-include lib`"
+
+lib=$1
+
+for dir in /usr/local/lib/backup-scripts /usr/lib/backup-scripts; do
+    if [[ -d $dir && -e $dir/$lib ]]; then
+        echo "$dir/$lib"
+        exit 0
+    fi
+done
+
+case $0 in
+   -*) my_dir=./$0 ;;
+   *)  my_dir=$0   ;;
+esac
+my_dir=`readlink -f "$my_dir"`
+my_dir=`dirname "$my_dir"`
+lib_dir=`readlink -f "$my_dir/../lib/backup-scripts"`
+echo "$lib_dir/$lib"
+
