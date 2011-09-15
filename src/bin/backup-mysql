@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 set -e 
 
@@ -18,10 +18,10 @@ Options
         List of tables to ignore, separated by spaces. Multiple options are permitted.
 
     --incremental, -i
-        Make an incremental backup; valid only in automated mode
+        Make an incremental backup; valid only in automated mode.
 
     -o filename
-        Output filename; valid only in manual mode
+        Perform a manual backup into filename.
 
 Notes
     Automated backup is placed into TMP_DIR/DATE/db/database.sql.bz2 file, where TMP_DIR is a
@@ -83,18 +83,21 @@ fi
 
 if [[ ! -z $output ]]; then 
     # manual backup
-    backup_db_full "$db" "$user" "$pass" "$extra_opt" "$output"
+    mysql_full "$db" "$user" "$pass" "$extra_opt" "$output"
 else 
     # automated backup
-    if (($incremental == 1)); then
+    mkdir -p "$TMP_DIR/.sql/$DATE"
+    mkdir -p "$TMP_DIR/$DATE/db"
+
+    if [[ $incremental == 1 ]]; then
         old="$TMP_DIR/.sql/$PREV_DATE/$db.sql"
         new="$TMP_DIR/.sql/$DATE/$db.sql"
         dst="$TMP_DIR/$DATE/db/$db.sql.inc"
-        backup_db_incr "$db" "$user" "$pass" "$extra_opt" "$old" "$new" "$dst"
+        mysql_incr "$db" "$user" "$pass" "$extra_opt" "$old" "$new" "$dst"
     else
         keep="$TMP_DIR/.sql/$DATE/$db.sql"
         dst="$TMP_DIR/$DATE/db/$db.sql"
-        backup_db_full "$db" "$user" "$pass" "$extra_opt" "$dst" "$keep"
+        mysql_full "$db" "$user" "$pass" "$extra_opt" "$dst" "$keep"
     fi
 fi
 

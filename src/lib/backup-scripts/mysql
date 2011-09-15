@@ -6,8 +6,8 @@
 # dumps a mysql database to the specified file using proper mysqldump options
 #
 # usage:
-#   dump_db $DB $USER $PASS $XTRA_OPT $DST
-dump_db() {
+#   mysql_dump $DB $USER $PASS $XTRA_OPT $DST
+mysql_dump() {
     local db=$1
     local user=$2
     local pass=$3
@@ -51,7 +51,7 @@ ignore_table_opt() {
 
 # usage:
 #   backup_db_full db user pass opt dst [keep]
-backup_db_full() {
+mysql_full() {
     local db=$1
     local user=$2
     local pass=$3
@@ -59,7 +59,7 @@ backup_db_full() {
     local dst=$5
     local keep=$6
 
-    dump_db "$db" "$user" "$pass" "$extra_opt" "$dst"
+    mysql_dump "$db" "$user" "$pass" "$extra_opt" "$dst"
     if [[ -z $keep ]]; then # don't keep the dump
         bzip2 -- "$dst"
     else # keep the dump as $keep
@@ -73,7 +73,7 @@ backup_db_full() {
 
 # usage:
 #   backup_db_incr db user pass opt old new dst
-backup_db_incr() {
+mysql_incr() {
     local db=$1
     local user=$2
     local pass=$3
@@ -85,7 +85,7 @@ backup_db_incr() {
     local old=`abs_path "$old"` # avoid diff & leading dash
     local new=`abs_path "$new"` # -//-
 
-    dump_db "$db" "$user" "$pass" "$extra_opt" "$new"
+    mysql_dump "$db" "$user" "$pass" "$extra_opt" "$new"
 
     # create an edit script
     set +e # diff may return 1 on success: 0 means no differences, 1 means some, 2 means error
