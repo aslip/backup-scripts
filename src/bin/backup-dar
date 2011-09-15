@@ -1,0 +1,78 @@
+#!/bin/bash
+
+set -e
+
+usage() {
+cat << EOF
+Backups source file or dir with dar.
+
+Usage
+    ${0##*/} src [options]
+
+Options
+    -a alias
+        Perform an automated backup. Put the result into TMP_DIR/DATE/files/alias.1.dar.
+
+    -o filename
+        Perform a manual backup into filename.1.dar.
+
+    --incremental
+        Make an incremental backup. Valid only in automated mode.
+EOF
+    exit 1
+}
+
+
+# parse parameters
+. "`backup-include util`"
+
+me=$(basename "`abs_path "$0"`")
+
+if (($# < 1)); then usage; fi
+
+src=$1
+shift 1
+
+opt=`getopt -n"$me" --longoptions="incremental" "a:o:" "$@"` || exit 1
+eval set -- $opt
+while (($# > 0)); do
+    case $1 in
+        -a)
+            alias=$2; shift;;
+        -o)
+            output=$2; shift;;
+        --incremental|-i) 
+            incremental=1;;
+    esac
+    shift
+done
+
+
+# handle
+
+. "`backup-include dar`"
+
+if [[ ! -z $output ]]; then 
+    # manual backup
+    dar_full "$src" "$output"
+elif [[ ! -z $alias ]]; then
+    # automated backup
+    mkdir -p "$TMP_DIR/$DATE/files"
+
+    if [[ $incremental == 1 ]]; then
+        if [[ -e $TMP_DIR/$PREV_DATE/files/$alias.1.dar ]]; then
+            incr_src=$TMP_DIR/$PREV_DATE/files/$alias
+        elif [[ -e $TMP_DIR/$PREV_DATE/files/$alias.inc.1.dar ]]; then
+            incr_src=$TMP_DIR/$PREV_DATE/files/$alias.inc
+        else
+            echo Unable to make an incremental backup: no previous backup detected!
+            exit 1
+        fi
+        dst=$TMP_DIR/$DATE/files/$alias.inc
+        dar_incr "$src" "$incr_src" "$dst"
+    else
+        dst=$TMP_DIR/$DATE/files/$alias
+        dar_full "$src" "$dst"
+    fi
+fi
+

@@ -1,0 +1,20 @@
+# vim: set ft=sh:
+
+# don’t compress <256B files; 
+# use bzip compression; 
+# ignore *.dar files
+DAR_OPTIONS='-m 256 -y -P *.dar'
+
+dar_full() {
+    local SRC=$1
+    local DST=$2
+    dar $DAR_OPTIONS -R "$SRC" -c "$DST" 
+}
+
+dar_incr() {
+    local SRC=$1
+    local INCR_SRC=$2
+    local DST=$3
+    dar $DAR_OPTIONS -R "$SRC" -A "$INCR_SRC" -c "$DST"
+}
+
