@@ -1,22 +1,39 @@
-#!/bin/bash
+# vim: set ft=sh:
+#
+# Usage: 
+#   . backup-init
+#
+# This file has to be sourced rather than executed to correctly export variables
 
 . "`backup-include util`"
 
-get_last_backup_date() {
+has_prev_backup_date() {
+    if [[ -e $TMP_DIR/.last ]]; then
+        return 0;
+    else
+        return 1;
+    fi
+}
+
+get_prev_backup_date() {
     cat "$TMP_DIR/.last"
 }
 
-set_last_backup_date() {
+set_prev_backup_date() {
     echo "$1" > "$TMP_DIR/.last"
 }
 
+# Note: export X=`Y` is not affected by 'set -e', i.e. if Y fails execution procceeds
+# so we use 'X=`Y`; export X' construct.
+
 # ensure that TMP_DIR is absolute, use /var/backup by default
-TMP_DIR=${TMP_DIR:-/var/backup}
-export TMP_DIR=`abs_path "$TMP_DIR"`
+TMP_DIR=`abs_path "${TMP_DIR:-/var/backup}"`; export TMP_DIR
 
 # inctemental backups magic
-export DATE=${DATE:-`date -I`} # allow setting DATE manually for tests
-export PREV_DATE=`get_last_backup_date`
+DATE=${DATE:-`date -I`}; export DATE # allow setting DATE manually for tests
+if has_prev_backup_date; then
+    PREV_DATE=`get_prev_backup_date`; export PREV_DATE
+fi
 
-set_last_backup_date "$DATE"
+set_prev_backup_date "$DATE"
 
