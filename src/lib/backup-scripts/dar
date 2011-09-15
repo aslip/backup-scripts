@@ -6,15 +6,15 @@
 DAR_OPTIONS='-m 256 -y -P *.dar'
 
 dar_full() {
-    local SRC=$1
-    local DST=$2
-    dar $DAR_OPTIONS -R "$SRC" -c "$DST" 
+    local src=$1
+    local dst=$2
+    dar $DAR_OPTIONS -R "$src" -c "$dst" 
 }
 
 dar_incr() {
-    local SRC=$1
-    local INCR_SRC=$2
-    local DST=$3
-    dar $DAR_OPTIONS -R "$SRC" -A "$INCR_SRC" -c "$DST"
+    local src=$1
+    local incr_src=$2
+    local dst=$3
+    dar $DAR_OPTIONS -R "$src" -A "$incr_src" -c "$dst"
 }
 
