@@ -4,7 +4,7 @@ set -e
 
 echo -n 'initializing... '
 
-PATH=$PATH:../src/bin
+PATH="$PATH:`readlink -f ../src/bin`"; export PATH 
 
 . "`backup-include util`"
 
