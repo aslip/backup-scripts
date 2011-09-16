@@ -29,5 +29,11 @@ path=$2
 escaped_path=`echo "$path" | perl -pe 's/ /\\\\ /g'` # backslash should be quoted inside backquotes
 # copy recursively; - this is the only way to make dirs with scp
 # preserve access times, modify times, modes etc;
+#
+# Note: it is important that scp does not copy hidden files in recursive mode
+# this allows us to store implementation-specific data (e.g. .sql, .last)
+# directly inside local backup dir and still don't waste traffic on them.
+# However, i didn't find a place where such behavior of scp is documented, so
+# be warned.
 scp -rp "$BACKUP_DIR/$BACKUP_DATE" "$server:/$escaped_path"
 

@@ -35,5 +35,9 @@ if backup_has_prev_date; then
     BACKUP_PREV_DATE=`backup_get_prev_date`; export BACKUP_PREV_DATE
 fi
 
+if [[ ! -e $BACKUP_DIR ]]; then
+    mkdir "$BACKUP_DIR"
+fi
+
 backup_set_prev_date "$BACKUP_DATE"
 
