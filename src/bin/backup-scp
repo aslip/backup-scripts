@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -e
+
+usage() {
+cat << EOF
+Copies latest automated backup to the specified destination over SCP.
+
+Usage
+    backup-scp server path
+
+Examples
+    backup-scp user@example.com wmdemo
+
+Notes
+    BACKUP_DIR/BACKUP_DATE is copied recursively to 'server:/path'. If path has 
+    spaces, you should not escape them - the script will do this for you.
+EOF
+    exit 1
+}
+
+if (($# < 2)); then usage; fi
+
+server=$1
+path=$2
+
+# see http://dennisthomsen.dk/2010/07/scp-ambiguous-target/
+# basically, if scp destination has spaces, they should be escaped by backslash
+escaped_path=`echo "$path" | perl -pe 's/ /\\\\ /g'` # backslash should be quoted inside backquotes
+# copy recursively; - this is the only way to make dirs with scp
+# preserve access times, modify times, modes etc;
+scp -rp "$BACKUP_DIR/$BACKUP_DATE" "$server:/$escaped_path"
+
