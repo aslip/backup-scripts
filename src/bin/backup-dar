@@ -11,7 +11,7 @@ Usage
 
 Options
     -a alias
-        Perform an automated backup. Put the result into TMP_DIR/DATE/files/alias.1.dar.
+        Perform an automated backup. Put the result into BACKUP_DIR/BACKUP_DATE/files/alias.1.dar.
 
     -o filename
         Perform a manual backup into filename.1.dar.
@@ -26,13 +26,12 @@ EOF
 # parse parameters
 . "`backup-include util`"
 
-me=$(basename "`abs_path "$0"`")
-
 if (($# < 1)); then usage; fi
 
 src=$1
 shift 1
 
+me=`abs_basename "$0"`
 opt=`getopt -n"$me" --longoptions="incremental" "a:o:" "$@"` || exit 1
 eval set -- $opt
 while (($# > 0)); do
@@ -54,25 +53,25 @@ done
 
 if [[ ! -z $output ]]; then 
     # manual backup
-    dar_full "$src" "$output"
+    backup_dar_full "$src" "$output"
 elif [[ ! -z $alias ]]; then
     # automated backup
-    mkdir -p "$TMP_DIR/$DATE/files"
+    mkdir -p "$BACKUP_DIR/$BACKUP_DATE/files"
 
     if [[ $incremental == 1 ]]; then
-        if [[ -e $TMP_DIR/$PREV_DATE/files/$alias.1.dar ]]; then
-            incr_src=$TMP_DIR/$PREV_DATE/files/$alias
-        elif [[ -e $TMP_DIR/$PREV_DATE/files/$alias.inc.1.dar ]]; then
-            incr_src=$TMP_DIR/$PREV_DATE/files/$alias.inc
+        if [[ -e "$BACKUP_DIR/$BACKUP_PREV_DATE/files/$alias.1.dar" ]]; then
+            incr_src="$BACKUP_DIR/$BACKUP_PREV_DATE/files/$alias"
+        elif [[ -e "$BACKUP_DIR/$BACKUP_PREV_DATE/files/$alias.inc.1.dar" ]]; then
+            incr_src="$BACKUP_DIR/$BACKUP_PREV_DATE/files/$alias.inc"
         else
-            echo Unable to make an incremental backup: no previous backup detected!
+            echo 'Unable to make an incremental backup: no previous backup detected!'
             exit 1
         fi
-        dst=$TMP_DIR/$DATE/files/$alias.inc
-        dar_incr "$src" "$incr_src" "$dst"
+        dst="$BACKUP_DIR/$BACKUP_DATE/files/$alias.inc"
+        backup_dar_incr "$src" "$incr_src" "$dst"
     else
-        dst=$TMP_DIR/$DATE/files/$alias
-        dar_full "$src" "$dst"
+        dst="$BACKUP_DIR/$BACKUP_DATE/files/$alias"
+        backup_dar_full "$src" "$dst"
     fi
 fi
 

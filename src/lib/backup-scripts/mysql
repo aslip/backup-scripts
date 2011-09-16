@@ -6,8 +6,8 @@
 # dumps a mysql database to the specified file using proper mysqldump options
 #
 # usage:
-#   mysql_dump $DB $USER $PASS $XTRA_OPT $DST
-mysql_dump() {
+#   backup_mysql_dump $DB $USER $PASS $XTRA_OPT $DST
+backup_mysql_dump() {
     local db=$1
     local user=$2
     local pass=$3
@@ -51,7 +51,7 @@ ignore_table_opt() {
 
 # usage:
 #   backup_db_full db user pass opt dst [keep]
-mysql_full() {
+backup_mysql_full() {
     local db=$1
     local user=$2
     local pass=$3
@@ -59,7 +59,7 @@ mysql_full() {
     local dst=$5
     local keep=$6
 
-    mysql_dump "$db" "$user" "$pass" "$extra_opt" "$dst"
+    backup_mysql_dump "$db" "$user" "$pass" "$extra_opt" "$dst"
     if [[ -z $keep ]]; then # don't keep the dump
         bzip2 -- "$dst"
     else # keep the dump as $keep
@@ -73,7 +73,7 @@ mysql_full() {
 
 # usage:
 #   backup_db_incr db user pass opt old new dst
-mysql_incr() {
+backup_mysql_incr() {
     local db=$1
     local user=$2
     local pass=$3
@@ -85,14 +85,12 @@ mysql_incr() {
     local old=`abs_path "$old"` # avoid diff & leading dash
     local new=`abs_path "$new"` # -//-
 
-    mysql_dump "$db" "$user" "$pass" "$extra_opt" "$new"
+    backup_mysql_dump "$db" "$user" "$pass" "$extra_opt" "$new"
 
     # create an edit script
     set +e # diff may return 1 on success: 0 means no differences, 1 means some, 2 means error
     diff -e --speed-large-files "$old" "$new" > "$dst"
-    if (($? == 2)); then
-        exit 1
-    fi
+    if (($? == 2)); then exit 1; fi
     set -e
     echo -e "w\nq" >> "$dst"
 

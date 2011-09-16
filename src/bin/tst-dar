@@ -3,33 +3,33 @@
 set -e
 
 . "`backup-include dar`"
-rm -r tmp
-mkdir -p tmp/{'-0 zero','-1 one','-2 two'}
+rm -r 'tmp'
+mkdir -p 'tmp/'{'-0 zero','-1 one','-2 two'}
 pushd $PWD
-cd tmp
+cd 'tmp'
 
 # library functions
-dar_full ../../../test/data/test.0 '-0 zero/-bak kab'
-dar_incr ../../../test/data/test.1 '-0 zero/-bak kab' '-1 one/-bak kab.inc'
-dar_incr ../../../test/data/test.2 '-1 one/-bak kab.inc' '-2 two/-bak kab.inc'
+backup_dar_full '../../../test/data/test.0' '-0 zero/-bak kab'
+backup_dar_incr '../../../test/data/test.1' '-0 zero/-bak kab' '-1 one/-bak kab.inc'
+backup_dar_incr '../../../test/data/test.2' '-1 one/-bak kab.inc' '-2 two/-bak kab.inc'
 
 # automated mode
 PATH=$PATH:`readlink -f ..`; export PATH
 
-mkdir -p auto
-TMP_DIR=`readlink -f auto`; export TMP_DIR
+mkdir -p 'auto'
+BACKUP_DIR=`readlink -f auto`; export BACKUP_DIR
 
-DATE='-0 zero' 
+BACKUP_DATE='-0 zero' 
 . backup-init # has to be executed in current script's context
-backup-dar ../../../test/data/test.0 -a '-aliaz zzz'
+backup-dar '../../../test/data/test.0' -a '-aliaz zzz'
 
-DATE='-1 one' 
+BACKUP_DATE='-1 one' 
 . backup-init
-backup-dar ../../../test/data/test.1 -a '-aliaz zzz' --incremental
+backup-dar '../../../test/data/test.1' -a '-aliaz zzz' --incremental
 
-DATE='-2 two'
+BACKUP_DATE='-2 two'
 . backup-init
-backup-dar ../../../test/data/test.2 -a '-aliaz zzz' --incremental
+backup-dar '../../../test/data/test.2' -a '-aliaz zzz' --incremental
 
 popd
 

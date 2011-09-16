@@ -7,33 +7,33 @@
 
 . "`backup-include util`"
 
-has_prev_backup_date() {
-    if [[ -e $TMP_DIR/.last ]]; then
+backup_has_prev_date() {
+    if [[ -e "$BACKUP_DIR/.last" ]]; then
         return 0;
     else
         return 1;
     fi
 }
 
-get_prev_backup_date() {
-    cat "$TMP_DIR/.last"
+backup_get_prev_date() {
+    cat "$BACKUP_DIR/.last"
 }
 
-set_prev_backup_date() {
-    echo "$1" > "$TMP_DIR/.last"
+backup_set_prev_date() {
+    echo "$1" > "$BACKUP_DIR/.last"
 }
 
 # Note: export X=`Y` is not affected by 'set -e', i.e. if Y fails execution procceeds
 # so we use 'X=`Y`; export X' construct.
 
-# ensure that TMP_DIR is absolute, use /var/backup by default
-TMP_DIR=`abs_path "${TMP_DIR:-/var/backup}"`; export TMP_DIR
+# ensure that BACKUP_DIR is absolute, use /var/backup by default
+BACKUP_DIR=`abs_path "${BACKUP_DIR:-'/var/backup'}"`; export BACKUP_DIR
 
 # inctemental backups magic
-DATE=${DATE:-`date -I`}; export DATE # allow setting DATE manually for tests
-if has_prev_backup_date; then
-    PREV_DATE=`get_prev_backup_date`; export PREV_DATE
+BACKUP_DATE=${BACKUP_DATE:-`date -I`}; export BACKUP_DATE # allow setting DATE manually for tests
+if backup_has_prev_date; then
+    BACKUP_PREV_DATE=`backup_get_prev_date`; export BACKUP_PREV_DATE
 fi
 
-set_prev_backup_date "$DATE"
+backup_set_prev_date "$BACKUP_DATE"
 

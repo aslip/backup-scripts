@@ -5,8 +5,8 @@
 
 lib=$1
 
-for dir in /usr/local/lib/backup-scripts /usr/lib/backup-scripts; do
-    if [[ -d $dir && -e $dir/$lib ]]; then
+for dir in '/usr/local/lib/backup-scripts' '/usr/lib/backup-scripts'; do
+    if [[ -d "$dir" && -e "$dir/$lib" ]]; then
         echo "$dir/$lib"
         exit 0
     fi

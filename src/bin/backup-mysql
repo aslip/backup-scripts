@@ -24,8 +24,8 @@ Options
         Perform a manual backup into filename.
 
 Notes
-    Automated backup is placed into TMP_DIR/DATE/db/database.sql.bz2 file, where TMP_DIR is a
-    user-defined environment variable and DATE is current date in YYYY-MM-DD format.
+    Automated backup is placed into BACKUP_DIR/BACKUP_DATE/db/database.sql.bz2 file, where BACKUP_DIR is a
+    user-defined environment variable and BACKUP_DATE is current date in YYYY-MM-DD format.
 
 Examples
     manual backup:
@@ -47,8 +47,6 @@ EOF
 # parse parameters
 . "`backup-include util`"
 
-me=$(basename "`abs_path "$0"`")
-
 if (($# < 3)); then usage; fi
 
 db=$1
@@ -56,6 +54,7 @@ user=$2
 pass=$3
 shift 3
 
+me=`abs_basename "$0"`
 opt=`getopt -n"$me" --longoptions="extra-opt: ignore: incremental" "o:i" "$@"` || exit 1
 eval set -- $opt
 while (($# > 0)); do
@@ -83,21 +82,21 @@ fi
 
 if [[ ! -z $output ]]; then 
     # manual backup
-    mysql_full "$db" "$user" "$pass" "$extra_opt" "$output"
+    backup_mysql_full "$db" "$user" "$pass" "$extra_opt" "$output"
 else 
     # automated backup
-    mkdir -p "$TMP_DIR/.sql/$DATE"
-    mkdir -p "$TMP_DIR/$DATE/db"
+    mkdir -p "$BACKUP_DIR/.sql/$BACKUP_DATE"
+    mkdir -p "$BACKUP_DIR/$BACKUP_DATE/db"
 
     if [[ $incremental == 1 ]]; then
-        old="$TMP_DIR/.sql/$PREV_DATE/$db.sql"
-        new="$TMP_DIR/.sql/$DATE/$db.sql"
-        dst="$TMP_DIR/$DATE/db/$db.sql.inc"
-        mysql_incr "$db" "$user" "$pass" "$extra_opt" "$old" "$new" "$dst"
+        old="$BACKUP_DIR/.sql/$BACKUP_PREV_DATE/$db.sql"
+        new="$BACKUP_DIR/.sql/$BACKUP_DATE/$db.sql"
+        dst="$BACKUP_DIR/$BACKUP_DATE/db/$db.sql.inc"
+        backup_mysql_incr "$db" "$user" "$pass" "$extra_opt" "$old" "$new" "$dst"
     else
-        keep="$TMP_DIR/.sql/$DATE/$db.sql"
-        dst="$TMP_DIR/$DATE/db/$db.sql"
-        mysql_full "$db" "$user" "$pass" "$extra_opt" "$dst" "$keep"
+        keep="$BACKUP_DIR/.sql/$BACKUP_DATE/$db.sql"
+        dst="$BACKUP_DIR/$BACKUP_DATE/db/$db.sql"
+        backup_mysql_full "$db" "$user" "$pass" "$extra_opt" "$dst" "$keep"
     fi
 fi
 

@@ -5,13 +5,13 @@
 # ignore *.dar files
 DAR_OPTIONS='-m 256 -y -P *.dar'
 
-dar_full() {
+backup_dar_full() {
     local src=$1
     local dst=$2
     dar $DAR_OPTIONS -R "$src" -c "$dst" 
 }
 
-dar_incr() {
+backup_dar_incr() {
     local src=$1
     local incr_src=$2
     local dst=$3
