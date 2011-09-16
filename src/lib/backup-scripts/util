@@ -8,3 +8,11 @@ abs_path() {
     echo `readlink -f "$FILE"`
 }
 
+abs_dirname() {
+    echo $(dirname "`abs_path "$1"`")
+}
+
+abs_basename() {
+    echo $(basename "`abs_path "$1"`")
+}
+
