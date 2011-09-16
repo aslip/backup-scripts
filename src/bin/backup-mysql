@@ -8,7 +8,7 @@ cat << EOF
 Makes a backup of a mysql database.
 
 Usage
-    ${0##*/} database username password [destination] [options]
+    ${0##*/} database username password [options]
 
 Options
     --extra-opt opts
