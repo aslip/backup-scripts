@@ -6,13 +6,15 @@
 # dumps a mysql database to the specified file using proper mysqldump options
 #
 # usage:
-#   backup_mysql_dump $DB $USER $PASS $XTRA_OPT $DST
+#   backup_mysql_dump $DB $USER $PASS $EXCLUDE_TABLES $XTRA_OPT $DST
+#   $EXCLUDE_TABLES - tables for which only schema should be dumped
 backup_mysql_dump() {
     local db=$1
     local user=$2
     local pass=$3
-    local extra_opt=$4
-    local dst=$5
+    local exclude_tables=$4
+    local extra_opt=$5
+    local dst=$6
 
     # -q (quick) - dump one row at a time, without buffering
     # -Q - quote names with `
@@ -26,40 +28,34 @@ backup_mysql_dump() {
         --skip-dump-date
         --max-allowed-packet=8M -Qq"
 
+    local ignore_opt=''
+    for table in $exclude_tables; do
+        # no trailing newline
+        local ignore_opt=${ignore_opt:+"$ignore_opt "}"--ignore-table=$db.$table"
+    done
+
     # eval ... $pass_opt is not safe unless we properly quote $user and other vars
     # ${var:+expr_if_not_null} is way better
-    mysqldump $opt $extra_opt -u"$user" ${pass:+"-p$pass"} "$db" > "$dst"
-}
-
-
-# makes a list of mysqldump ignore-table options from a list
-# of names of tables to be ignored and a database name
-#
-# example:
-#   ignore_table_opt database "table1 table2"
-# will output
-#   --ignore-table=database.table1 --ignore-table=database.table2
-ignore_table_opt() {
-    local db=$1
-    local tables=$2
-    for table in $tables; do
-        # no trailing newline
-        echo -n "--ignore-table=$db.$table "
-    done
+    mysqldump $opt $ignore_opt $extra_opt -u"$user" ${pass:+"-p$pass"} "$db" > "$dst"
+    if [[ ! -z $exclude_tables ]]; then
+        # export table definitions for excluded tables
+        mysqldump $opt $extra_opt --no-data -u"$user" ${pass:+"-p$pass"} "$db" $exclude_tables >> "$dst"
+    fi
 }
 
 
 # usage:
-#   backup_db_full db user pass opt dst [keep]
+#   backup_db_full db user pass exclude_tables opt dst [keep]
 backup_mysql_full() {
     local db=$1
     local user=$2
     local pass=$3
-    local extra_opt=$4
-    local dst=$5
-    local keep=$6
+    local exclude_tables=$4
+    local extra_opt=$5
+    local dst=$6
+    local keep=$7
 
-    backup_mysql_dump "$db" "$user" "$pass" "$extra_opt" "$dst"
+    backup_mysql_dump "$db" "$user" "$pass" "$exclude_tables" "$extra_opt" "$dst"
     if [[ -z $keep ]]; then # don't keep the dump
         bzip2 -- "$dst"
     else # keep the dump as $keep
@@ -72,20 +68,21 @@ backup_mysql_full() {
 
 
 # usage:
-#   backup_db_incr db user pass opt old new dst
+#   backup_db_incr db user pass exclude_tables opt old new dst
 backup_mysql_incr() {
     local db=$1
     local user=$2
     local pass=$3
-    local extra_opt=$4
-    local old=$5
-    local new=$6
-    local dst=$7
+    local exclude_tables=$4
+    local extra_opt=$5
+    local old=$6
+    local new=$7
+    local dst=$8
 
     local old=`abs_path "$old"` # avoid diff & leading dash
     local new=`abs_path "$new"` # -//-
 
-    backup_mysql_dump "$db" "$user" "$pass" "$extra_opt" "$new"
+    backup_mysql_dump "$db" "$user" "$pass" "$exclude_tables" "$extra_opt" "$new"
 
     # create an edit script
     set +e # diff may return 1 on success: 0 means no differences, 1 means some, 2 means error

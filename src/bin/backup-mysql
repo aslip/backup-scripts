@@ -14,8 +14,9 @@ Options
     --extra-opt opts
         Extra options to pass to mysqldump. Multiple options are permitted.
 
-    --ignore tables
-        List of tables to ignore, separated by spaces. Multiple options are permitted.
+    --exclude tables
+        List of tables to exclude, separated by spaces. Multiple options are permitted.
+        No data will be dumped for excluded table, only the table definition.
 
     --incremental, -i
         Make an incremental backup; valid only in automated mode.
@@ -29,16 +30,16 @@ Notes
 
 Examples
     manual backup:
-        ${0##*/} karta kartauser '' --ignore 'cache cache_content' -o /path/to/backup.sql
+        ${0##*/} karta kartauser '' --exclude 'cache cache_content' -o /path/to/backup.sql
         
     automated backup:
-        ${0##*/} karta kartauser '' --ignore cache --ignore cache_content
+        ${0##*/} karta kartauser '' --exclude cache --exclude cache_content
 
     automated incremental backup:
-        ${0##*/} karta kartauser '' --ignore 'cache cache_content' --incremental
+        ${0##*/} karta kartauser '' --exclude 'cache cache_content' --incremental
 
     extra options:
-        ${0##*/} karta kartauser '' --ignore 'cache cache_content' --extra-opt='-Cqu --comments' --extra-opt='--help'
+        ${0##*/} karta kartauser '' --exclude 'cache cache_content' --extra-opt='-Cqu --comments' --extra-opt='--help'
 EOF
     exit 1
 }
@@ -55,14 +56,14 @@ pass=$3
 shift 3
 
 me=`abs_basename "$0"`
-opt=`getopt -n"$me" --longoptions="extra-opt: ignore: incremental" "o:i" "$@"` || exit 1
+opt=`getopt -n"$me" --longoptions="extra-opt: exclude: incremental" "o:i" "$@"` || exit 1
 eval set -- $opt
 while (($# > 0)); do
     case $1 in
         --extra-opt)
             extra_opt=${extra_opt+"$extra_opt "}$2; shift;; # separate multiple extra_opt with space
-        --ignore) 
-            ignore=${ignore+"$ignore "}$2; shift;;
+        --exclude) 
+            exclude=${exclude+"$exclude "}$2; shift;;
         --incremental|-i) 
             incremental=1;;
         -o)
@@ -76,13 +77,9 @@ done
 
 . "`backup-include mysql`"
 
-if [[ $ignore ]]; then
-    extra_opt="`ignore_table_opt "$db" "$ignore"` $extra_opt"
-fi
-
 if [[ ! -z $output ]]; then 
     # manual backup
-    backup_mysql_full "$db" "$user" "$pass" "$extra_opt" "$output"
+    backup_mysql_full "$db" "$user" "$pass" "$exclude" "$extra_opt" "$output"
 else 
     # automated backup
     mkdir -p "$BACKUP_DIR/.sql/$BACKUP_DATE"
@@ -92,11 +89,11 @@ else
         old="$BACKUP_DIR/.sql/$BACKUP_PREV_DATE/$db.sql"
         new="$BACKUP_DIR/.sql/$BACKUP_DATE/$db.sql"
         dst="$BACKUP_DIR/$BACKUP_DATE/db/$db.sql.inc"
-        backup_mysql_incr "$db" "$user" "$pass" "$extra_opt" "$old" "$new" "$dst"
+        backup_mysql_incr "$db" "$user" "$pass" "$exclude" "$extra_opt" "$old" "$new" "$dst"
     else
         keep="$BACKUP_DIR/.sql/$BACKUP_DATE/$db.sql"
         dst="$BACKUP_DIR/$BACKUP_DATE/db/$db.sql"
-        backup_mysql_full "$db" "$user" "$pass" "$extra_opt" "$dst" "$keep"
+        backup_mysql_full "$db" "$user" "$pass" "$exclude" "$extra_opt" "$dst" "$keep"
     fi
 fi
 
