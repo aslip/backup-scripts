@@ -25,12 +25,12 @@ echo '' > $LOG_FILE
 use_files() {
     local files_to_use=$1
     rm -rf "./$TEST_FILES_DIR"
-    cp -a "./data/$files_to_use" "./$TEST_FILES_DIR"
+    cp -a "./$TEST_DATA_DIR/$files_to_use" "./$TEST_FILES_DIR"
 }
 
 use_db() {
     local sql_to_use=$1
-    cat "./data/$sql_to_use" | $MYSQL "$TEST_DB"
+    cat "./$TEST_DATA_DIR/$sql_to_use" | $MYSQL "$TEST_DB"
 }
 
 restore_files() {
@@ -51,7 +51,7 @@ restore_files() {
 
 check_files() {
     local reference_files=$1
-    diff -r './tmp/restored-files' "./data/$reference_files" >> $LOG_FILE
+    diff -r './tmp/restored-files' "./$TEST_DATA_DIR/$reference_files" >> $LOG_FILE
     # keep the restored-files dir for incremental restores
 }
 
@@ -76,7 +76,7 @@ restore_db_incr() {
 check_db() {
     local reference_sql=$1
     backup_mysql_dump "$TEST_DB" "$TEST_USER" "$TEST_PASS" "$TEST_EXCLUDE_TABLES" '' './restored.sql'
-    diff './restored.sql' "./data/$reference_sql"
+    diff './restored.sql' "./$TEST_DATA_DIR/$reference_sql"
     rm './restored.sql'
 }
 
