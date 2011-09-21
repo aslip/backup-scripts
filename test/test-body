@@ -25,7 +25,10 @@ echo '' > $LOG_FILE
 use_files() {
     local files_to_use=$1
     rm -rf "./$TEST_FILES_DIR"
-    cp -a "./$TEST_DATA_DIR/$files_to_use" "./$TEST_FILES_DIR"
+    # follow command line symlinks (since ./$TEST_DATA_DIR/$files_to_use
+    # may be a symlink); any symbolic link that is encountered via 
+    # recursive traversal will be copied as is
+    cp -aH "./$TEST_DATA_DIR/$files_to_use" "./$TEST_FILES_DIR"
 }
 
 use_db() {
