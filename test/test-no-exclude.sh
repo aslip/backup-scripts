@@ -16,8 +16,6 @@ TEST_EXCLUDE_TABLES=''; export TEST_EXCLUDE_TABLES # empty
 TEST_SERVER="`whoami`@localhost"; export TEST_SERVER
 TEST_SERVER_PATH="`abs_dirname "$0"`/srv"; export TEST_SERVER_PATH # server path should be absolute
 
-LOG_FILE="`abs_basename "$0"`.log"
-
 TEST_DB='backup_test'; export TEST_DB
 TEST_USER='root'; export TEST_USER
 TEST_PASS=''; export TEST_PASS

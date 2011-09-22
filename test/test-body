@@ -1,6 +1,23 @@
+# vim: set ft=sh:
+
+. colors
+ 
+test_print() {
+    echo -e "${C_BWHITE}$1${C_RESET}"
+}
+
+test_begin() {
+    TEST_CURRENT=$1 # global
+    test_print "$TEST_CURRENT..."
+}
+
+test_end() {
+    test_print "$TEST_CURRENT - ${C_BGREEN}OK"
+    echo -e "\n\n"
+}
 
 cleanup() {
-    echo 'cleanup...'
+    test_print 'cleanup...'
 
     if [[ -e './tmp' ]]; then
         rm -r './tmp'
@@ -19,8 +36,6 @@ cleanup() {
 }
 
 cleanup
-
-echo '' > $LOG_FILE
 
 use_files() {
     local files_to_use=$1
@@ -49,12 +64,12 @@ restore_files() {
     fi
     # -w means "don't warn when overwriting files" and it must be there 
     # if we are simply restoring an archive
-    dar $dar_opt -w -x "$TEST_SERVER_PATH/$date/files/$archive" -R './tmp/restored-files' >> $LOG_FILE
+    dar $dar_opt -w -x "$TEST_SERVER_PATH/$date/files/$archive" -R './tmp/restored-files'
 }
 
 check_files() {
     local reference_files=$1
-    diff -r './tmp/restored-files' "./$TEST_DATA_DIR/$reference_files" >> $LOG_FILE
+    diff -r './tmp/restored-files' "./$TEST_DATA_DIR/$reference_files"
     # keep the restored-files dir for incremental restores
 }
 
@@ -96,76 +111,69 @@ DATE2=`date -d '+2 days' -I`
 mkdir "$TEST_SERVER_PATH"
 mkdir './tmp'
 
-echo OK # initializing
+test_end # initializing
 
 
 
-echo -n 'making full backup... '
-use_files 'test.0'
-use_db 'backup_test.0.sql'
-BACKUP_DATE="$DATE0" test-backup >> $LOG_FILE
-echo OK
+test_begin 'making full backup'
+    use_files 'test.0'
+    use_db 'backup_test.0.sql'
+    BACKUP_DATE="$DATE0" test-backup
+test_end
 
-echo -n 'making incremental backup against a full backup... '
-use_files 'test.1'
-use_db 'backup_test.1.sql'
-BACKUP_DATE="$DATE1" test-backup --incremental >> $LOG_FILE
-echo OK
+test_begin 'making incremental backup against a full backup'
+    use_files 'test.1'
+    use_db 'backup_test.1.sql'
+    BACKUP_DATE="$DATE1" test-backup --incremental
+test_end
 
-echo -n 'making incremental backup against an incremental backup... '
-use_files 'test.2'
-use_db 'backup_test.2.sql'
-BACKUP_DATE="$DATE2" test-backup --incremental >> $LOG_FILE
-echo OK
-
-
-
-
-echo 'checking full backup...'
-echo -n '   files... '
-restore_files "$DATE0" "$TEST_FILES_ALIAS"
-check_files 'test.0'
-echo 'OK'
-echo -n '   db... '
-restore_db "$DATE0"
-check_db 'reference.0.sql'
-echo 'OK'
-echo -n '   ignore-tables...'
-check_ignore_tables
-echo 'OK'
+test_begin 'making incremental backup against an incremental backup'
+    use_files 'test.2'
+    use_db 'backup_test.2.sql'
+    BACKUP_DATE="$DATE2" test-backup --incremental
+test_end
 
 
 
-echo 'checking 1st incremental backup...'
-echo -n '   files... '
-restore_files "$DATE1" "$TEST_FILES_ALIAS.inc"
-check_files 'test.1'
-echo 'OK'
-echo -n '   db... '
-restore_db_incr "$DATE1"
-check_db 'reference.1.sql'
-echo 'OK'
-echo -n '   ignore-tables...' 
-check_ignore_tables
-echo 'OK'
+
+test_begin 'checking full backup files'
+    restore_files "$DATE0" "$TEST_FILES_ALIAS"
+    check_files 'test.0'
+test_end
+test_begin 'checking full backup db'
+    restore_db "$DATE0"
+    check_db 'reference.0.sql'
+test_end
+test_begin 'checking full backup ignore-tables'
+    check_ignore_tables
+test_end
 
 
-echo 'checking 2nd incremental backup...'
-echo -n '   files... '
-restore_files "$DATE2" "$TEST_FILES_ALIAS.inc"
-check_files 'test.2'
-echo 'OK'
-echo -n '   db... '
-restore_db_incr "$DATE2"
-check_db 'reference.2.sql'
-echo 'OK'
-echo -n '   ignore-tables...' 
-check_ignore_tables
-echo 'OK'
+
+test_begin 'checking 1st incremental backup files'
+    restore_files "$DATE1" "$TEST_FILES_ALIAS.inc"
+    check_files 'test.1'
+test_end
+test_begin 'checking 1st incremental backup db'
+    restore_db_incr "$DATE1"
+    check_db 'reference.1.sql'
+test_end
+test_begin 'checking 1st incremental backup ignore-tables'
+    check_ignore_tables
+test_end
+
+
+test_begin 'checking 2nd incremental backup files'
+    restore_files "$DATE2" "$TEST_FILES_ALIAS.inc"
+    check_files 'test.2'
+test_end
+test_begin 'checking 2nd incremental backup db'
+    restore_db_incr "$DATE2"
+    check_db 'reference.2.sql'
+test_end
+test_begin 'checking 2nd incremental backup ignore-tables'
+    check_ignore_tables
+test_end
 
 cleanup
-
-echo
-echo 'TEST PASSED'
-echo
 

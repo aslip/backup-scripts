@@ -7,7 +7,7 @@
 
 # store the current value of errexit and turn in on for this file only
 errexit=1 # assume -e is off
-if shopt -o errexit; then # -e is on
+if shopt -o errexit > /dev/null; then # -e is on
     errexit=0
 fi
 set -e
