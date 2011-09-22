@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e
-
 export BACKUP_DIR=$TEST_BACKUP_DIR
 
 if [[ $1 == '--incremental' ]]; then

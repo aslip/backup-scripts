@@ -5,6 +5,13 @@
 #
 # This file has to be sourced rather than executed to correctly export variables
 
+# store the current value of errexit and turn in on for this file only
+errexit=1 # assume -e is off
+if shopt -o errexit; then # -e is on
+    errexit=0
+fi
+set -e
+
 . "`backup-include util`"
 
 backup_has_prev_date() {
@@ -40,4 +47,9 @@ if [[ ! -e $BACKUP_DIR ]]; then
 fi
 
 backup_set_prev_date "$BACKUP_DATE"
+
+# restore the errexit option
+if [[ $errexit == 1 ]]; then # -e was off, restore it
+    set +e
+fi
 
