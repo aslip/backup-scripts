@@ -1,0 +1,45 @@
+#!/bin/bash
+
+set -e
+
+usage() 
+{
+cat << EOF
+Removes outdated local backups and temporary data.
+
+Usage
+    ${0##*/} days
+
+Options
+    days
+        Number of days to store the local backup data. Files whose age is greater or
+        equal than %days will be deleted. Be careful when setting this value to avoid 
+        accidental deletion of a full backup (see Notes).
+
+Output
+    Files that were actually deleted.
+
+Note
+    Imagine that you make a full backup each Saturday and incremental backups on other days, and you want 
+    to have access to a two-week old backup. Then you need backups for last 7 days to always be able to 
+    restore any of them. To restore previous week backups, you need an additional 7 days, and another 7 
+    days for second week. So you have to set %days to 14 (prev. two weeks) + 7 (current backup). 
+    To illustrate:
+        F1 I2 I3 I4 I5 I6 I7 | F8 I9 I10 I11 I12 I13 I14 | F15 I16 I17 I18 I19 I20 I21 | F22 I23 ...
+    where Fi - full backup for day i, Ii - incremental backup. At F22 F1 will be deleted and I2..I7 will 
+    become useless.
+    So, %days must be enough to restore the current backup (F22...) plus days needed to restore previous 
+    backups (previous week backup: F15..I21, second week backup: F8..F14).
+EOF
+    exit 1
+}
+
+if (($# < 1)); then usage; fi
+
+days=$1
+
+ref_date=`date -d "$BACKUP_DATE -$days days" -I`
+echo 'backup_rotate:'
+# find files with mtime not greater than $ref_date <-> older or equal to
+find "$BACKUP_DIR" \! -newermt "$ref_date" -print -delete
+

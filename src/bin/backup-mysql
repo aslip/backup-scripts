@@ -85,11 +85,21 @@ else
     mkdir -p "$BACKUP_DIR/.sql/$BACKUP_DATE"
     mkdir -p "$BACKUP_DIR/$BACKUP_DATE/db"
 
-    if [[ $incremental == 1 ]]; then
+    if [[ $incremental == 1 ]]; then       
+        # workaround for backup-rotate: it depends on mtime, but incremental
+        # backup removes .sql from old dir thus modifying its mtime; so we 
+        # preserve old dir's mtime manually
+        old_date=`stat -c '%y' "$BACKUP_DIR/.sql/$BACKUP_PREV_DATE"`
+
+        # backup
         old="$BACKUP_DIR/.sql/$BACKUP_PREV_DATE/$db.sql"
         new="$BACKUP_DIR/.sql/$BACKUP_DATE/$db.sql"
         dst="$BACKUP_DIR/$BACKUP_DATE/db/$db.sql.inc"
         backup_mysql_incr "$db" "$user" "$pass" "$exclude" "$extra_opt" "$old" "$new" "$dst"
+
+        # workaround for backup-rotate
+        old_date=`date -d "$old_date" '+%Y%m%d%H%M'`
+        touch -t "$old_date" "$BACKUP_DIR/.sql/$BACKUP_PREV_DATE"
     else
         keep="$BACKUP_DIR/.sql/$BACKUP_DATE/$db.sql"
         dst="$BACKUP_DIR/$BACKUP_DATE/db/$db.sql"
