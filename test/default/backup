@@ -1,6 +1,8 @@
 #!/bin/bash
 
-export BACKUP_DIR=$TEST_BACKUP_DIR
+set -e
+
+export BACKUP_DIR="/tmp/backup-scripts/$TEST_BACKUP_DIR"
 
 if [[ $1 == '--incremental' ]]; then
     incremental_opt='--incremental'
@@ -15,6 +17,6 @@ fi
 
 backup-mysql "$TEST_DB" "$TEST_USER" "$TEST_PASS" \
     ${TEST_EXCLUDE_TABLES:+--exclude "$TEST_EXCLUDE_TABLES"} $incremental_opt
-backup-dar "$TEST_FILES_DIR" -a "$TEST_FILES_ALIAS" $incremental_opt
+backup-dar "/tmp/backup-scripts/$TEST_FILES_DIR" -a "$TEST_FILES_ALIAS" $incremental_opt
 backup-scp "$TEST_SERVER" "$TEST_SERVER_PATH"
 

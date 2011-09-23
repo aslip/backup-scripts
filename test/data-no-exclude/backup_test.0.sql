@@ -1,1 +1,0 @@
-../data-default/backup_test.0.sql

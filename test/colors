@@ -1,0 +1,8 @@
+# vim: set ft=sh:
+
+C_RESET='\e[0m'
+C_BGREEN='\e[1;32m'
+C_BWHITE='\e[1;37m'
+C_BRED='\e[1;31m' 
+C_BYELLOW='\e[1;33m'  
+

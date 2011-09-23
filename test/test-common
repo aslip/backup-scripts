@@ -1,0 +1,223 @@
+# vim: set ft=sh:
+
+set -e
+
+PATH="$PATH:`readlink -f ../../src/bin`"; export PATH 
+. "`backup-include util`"
+
+#
+# output functions
+#
+
+. ../colors
+
+test_print() {
+    echo -e "${C_BWHITE}$1${C_RESET}"
+}
+
+test_begin() {
+    TEST_CURRENT=$1 # global
+    # run-tests.sh will print a message so that we will know what exactly failed
+    mkdir -p '/tmp/backup-scripts'
+    echo $TEST_CURRENT > '/tmp/backup-scripts/test-current'
+}
+
+test_end() {
+    test_print "$TEST_CURRENT - ${C_BGREEN}OK"
+    echo -e "\n\n"
+}
+
+die() {
+    echo -e "${C_BRED}$1${C_RESET}"
+    exit 1
+}
+
+
+
+#
+# test functions
+#
+
+cleanup() {
+    test_print 'cleanup...'
+
+    rm -rf '/tmp/backup-scripts'
+
+    if [[ -e $TEST_SERVER_PATH ]]; then
+        rm -r "$TEST_SERVER_PATH"
+    fi
+
+    $MYSQL -e "DROP DATABASE IF EXISTS $TEST_DB"
+    $MYSQL -e "CREATE DATABASE $TEST_DB DEFAULT CHARSET utf8"
+}
+
+# A few words about dates
+#   It's hard to properly emulate different dates in test, but it's 
+#   crucial for testing, because all backup code depends on current date, 
+#   file mtimes etc. That's why we manipulate system time with 
+#   'sudo date -s' in tests. But then there is a problem: if a test will 
+#   change date and fail afterwards, someone (test runner) should restore 
+#   the system time. It also should not corrupt the system time if test 
+#   didn't fail or din't change the system time before the failure.
+#   Also, we use '+1 day'/'-1 day' dates so that daytime is not affected 
+#   by tests.
+
+first_date() {
+    DATE=(`date -I`) # global
+    echo '0' > './days' # we can't store days in /tmp/backup-scripts because 
+                        # it will be deleted if test will not fail
+}
+
+next_date() {
+    local date=`sudo date -s '+1 day' -I`
+    DATE+=("$date") # global
+
+    # run-tests.sh will restore the system date
+    local days=`cat './days'`
+    local days=$(($days + 1))
+    echo "$days" > './days'
+}
+
+use_data() {
+    local data_to_use=$1
+
+    # files
+    rm -rf "/tmp/backup-scripts/$TEST_FILES_DIR"
+    # follow command line symlinks (since ./data/$files_to_use
+    # may be a symlink); any symbolic link that is encountered via 
+    # recursive traversal will be copied as is
+    cp -aH "./data/$data_to_use/files" "/tmp/backup-scripts/$TEST_FILES_DIR"
+
+    # db
+    cat "./data/$data_to_use/db.sql" | $MYSQL "$TEST_DB"
+}
+
+
+
+#
+# files functions
+#
+
+restore_files() {
+    local date=$1
+    
+    # guess full/incr backup
+    local archive=$TEST_FILES_ALIAS # assume full backup by default
+    if [[ -e "$TEST_SERVER_PATH/$date/files/$TEST_FILES_ALIAS.inc.1.dar" ]]; then
+        if [[ -e "$TEST_SERVER_PATH/$date/files/$TEST_FILES_ALIAS.1.dar" ]]; then
+            die 'Two different backups in the same dir!'
+        else
+            local archive="$TEST_FILES_ALIAS.inc" # incremental backup
+        fi
+    elif [[ ! -e "$TEST_SERVER_PATH/$date/files/$TEST_FILES_ALIAS.1.dar" ]]; then
+        die 'No file backups found!'
+    fi
+
+    # actually restore
+    echo "Restoring files from $archive"
+
+    # don't produce error only when there is already a "restored-files" dir
+    # this is different from "mkdir -p", because it will fail when e.g. "tmp" does not exist
+    if [[ ! -e '/tmp/backup-scripts/restored-files' ]]; then
+        mkdir '/tmp/backup-scripts/restored-files'
+    fi
+    if [[ $UID != 0 ]]; then
+        local dar_opt=-O # ignore owner (owner can be restored only under root)
+    fi
+    # -w means "don't warn when overwriting files" and it must be there 
+    # if we are simply restoring an archive
+    dar $dar_opt -w -x "$TEST_SERVER_PATH/$date/files/$archive" -R '/tmp/backup-scripts/restored-files'
+}
+
+check_files() {
+    local reference=$1
+    diff -r '/tmp/backup-scripts/restored-files' "./data/$reference/files"
+    # keep the restored-files dir for incremental restores
+}
+
+
+
+#
+# db functions
+#
+
+restore_db_full() {
+    local date=$1
+
+    local sql="$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.bz2"
+    echo "Restoring db from $sql"
+    bunzip2 -kc "$sql" > '/tmp/backup-scripts/restored-db.sql'
+    cat '/tmp/backup-scripts/restored-db.sql' | $MYSQL "$TEST_DB"
+    # keep the restored-db.sql for incremental restores
+}
+
+restore_db_incr() {
+    local date=$1
+
+    local sql="$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.inc.bz2"
+    echo "Restoring db from $sql"
+    bunzip2 -kc "$sql" > '/tmp/backup-scripts/sql.inc'
+    # suppress diagnostics (ed's man requires this when ed's stdin is from script)
+    ed -s '/tmp/backup-scripts/restored-db.sql' < '/tmp/backup-scripts/sql.inc'
+    rm '/tmp/backup-scripts/sql.inc'
+    cat '/tmp/backup-scripts/restored-db.sql' | $MYSQL "$TEST_DB"
+}
+
+restore_db() {
+    local date=$1
+    if [[ -e "$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.inc.bz2" ]]; then
+        if [[ -e "$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.bz2" ]]; then
+            die 'Two different db backups in the same dir!'
+        else
+            restore_db_incr "$date"
+        fi
+    elif [[ -e "$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.bz2" ]]; then
+        restore_db_full "$date"
+    else
+        die 'No database backups found!'
+    fi
+}
+
+. "`backup-include mysql`" # for backup_mysql_dump
+
+check_db() {
+    local reference=$1
+    backup_mysql_dump "$TEST_DB" "$TEST_USER" "$TEST_PASS" \
+        "$TEST_EXCLUDE_TABLES" '' '/tmp/backup-scripts/restored.sql'
+    diff '/tmp/backup-scripts/restored.sql' "./data/$reference/reference.sql"
+    rm '/tmp/backup-scripts/restored.sql'
+}
+
+check_ignore_tables() {
+    # FIXME: does not work
+    grep -vi 'table2' '/tmp/backup-scripts/restored-db.sql' > /dev/null
+    grep -vi 'table3' '/tmp/backup-scripts/restored-db.sql' > /dev/null
+}
+
+
+
+#
+# initialization
+#
+
+test_begin 'initialization'
+    TEST_BACKUP_DIR=${TEST_BACKUP_DIR-'local_dir'}; export TEST_BACKUP_DIR
+    TEST_FILES_DIR=${TEST_FILES_DIR-'www'}; export TEST_FILES_DIR # files to backup
+    TEST_FILES_ALIAS=${TEST_FILES_ALIAS-'test'}; export TEST_FILES_ALIAS
+    TEST_EXCLUDE_TABLES=${TEST_EXCLUDE_TABLES-'table2
+        table3'}; export TEST_EXCLUDE_TABLES # newline intended
+    TEST_SERVER=${TEST_SERVER-"`whoami`@localhost"}; export TEST_SERVER
+    TEST_SERVER_PATH=${TEST_SERVER_PATH-"/tmp/backup-scripts/srv"}; export TEST_SERVER_PATH # server path should be absolute
+
+    TEST_DB=${TEST_DB-'backup_test'}; export TEST_DB
+    TEST_USER=${TEST_USER-'root'}; export TEST_USER
+    TEST_PASS=${TEST_PASS-''}; export TEST_PASS
+
+    MYSQL='mysql -uroot'
+
+    cleanup
+
+    mkdir '/tmp/backup-scripts'
+    mkdir "$TEST_SERVER_PATH"
+test_end
+
