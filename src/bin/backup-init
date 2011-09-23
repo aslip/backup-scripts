@@ -37,7 +37,7 @@ backup_set_prev_date() {
 BACKUP_DIR=`abs_path "${BACKUP_DIR:-'/var/backup'}"`; export BACKUP_DIR
 
 # inctemental backups magic
-BACKUP_DATE=${BACKUP_DATE:-`date -I`}; export BACKUP_DATE # allow setting DATE manually for tests
+BACKUP_DATE=`date -I`; export BACKUP_DATE
 if backup_has_prev_date; then
     BACKUP_PREV_DATE=`backup_get_prev_date`; export BACKUP_PREV_DATE
 fi

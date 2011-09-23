@@ -173,12 +173,6 @@ check_ignore_tables() {
 # initialization
 #
 
-DATE=(
-    `date -d '+0 days' -I` 
-    `date -d '+1 days' -I`
-    `date -d '+2 days' -I`
-)
-
 cleanup
 
 mkdir '/tmp/backup-scripts'
@@ -193,19 +187,24 @@ test_end # initializing
 # making backups
 #
 
+DATE=()
+
 test_begin 'making full backup'
+    date=`date -I`; DATE+=($date)
     use_data '0'
-    BACKUP_DATE="${DATE[0]}" test-backup
+    test-backup
 test_end
 
 test_begin 'making incremental backup against a full backup'
+    date=`sudo date -s '+1 day' -I`; DATE+=($date)
     use_data '1'
-    BACKUP_DATE="${DATE[1]}" test-backup --incremental
+    test-backup --incremental
 test_end
 
 test_begin 'making incremental backup against an incremental backup'
+    date=`sudo date -s '+1 day' -I`; DATE+=($date)
     use_data '2'
-    BACKUP_DATE="${DATE[2]}" test-backup --incremental
+    test-backup --incremental
 test_end
 
 
@@ -235,6 +234,8 @@ check_backup '1st incremental backup' '1'
 check_backup '2nd incremental backup' '2'
 
 
+
+sudo date -s '-2 days'
 
 cleanup
 
