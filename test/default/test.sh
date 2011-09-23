@@ -10,22 +10,20 @@ PATH="$PATH:`abs_dirname "$0"`"; export PATH # for 'backup'
 # making backups
 #
 
-DATE=()
-
 test_begin 'making full backup'
-    date=`date -I`; DATE+=($date)
+    first_date
     use_data '0'
     backup
 test_end
 
 test_begin 'making incremental backup against a full backup'
-    date=`sudo date -s '+1 day' -I`; DATE+=($date)
+    next_date
     use_data '1'
     backup --incremental
 test_end
 
 test_begin 'making incremental backup against an incremental backup'
-    date=`sudo date -s '+1 day' -I`; DATE+=($date)
+    next_date
     use_data '2'
     backup --incremental
 test_end
@@ -57,8 +55,6 @@ check_backup '1st incremental backup' '1'
 check_backup '2nd incremental backup' '2'
 
 
-
-sudo date -s '-2 days'
 
 cleanup
 

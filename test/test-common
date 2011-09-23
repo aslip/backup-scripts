@@ -51,6 +51,33 @@ cleanup() {
     $MYSQL -e "CREATE DATABASE $TEST_DB DEFAULT CHARSET utf8"
 }
 
+# A few words about dates
+#   It's hard to properly emulate different dates in test, but it's 
+#   crucial for testing, because all backup code depends on current date, 
+#   file mtimes etc. That's why we manipulate system time with 
+#   'sudo date -s' in tests. But then there is a problem: if a test will 
+#   change date and fail afterwards, someone (test runner) should restore 
+#   the system time. It also should not corrupt the system time if test 
+#   didn't fail or din't change the system time before the failure.
+#   Also, we use '+1 day'/'-1 day' dates so that daytime is not affected 
+#   by tests.
+
+first_date() {
+    DATE=(`date -I`) # global
+    echo '0' > './days' # we can't store days in /tmp/backup-scripts because 
+                        # it will be deleted if test will not fail
+}
+
+next_date() {
+    local date=`sudo date -s '+1 day' -I`
+    DATE+=("$date") # global
+
+    # run-tests.sh will restore the system date
+    local days=`cat './days'`
+    local days=$(($days + 1))
+    echo "$days" > './days'
+}
+
 use_data() {
     local data_to_use=$1
 
