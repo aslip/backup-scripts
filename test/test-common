@@ -1,10 +1,15 @@
 # vim: set ft=sh:
 
+set -e
+
+PATH="$PATH:`readlink -f ../../src/bin`"; export PATH 
+. "`backup-include util`"
+
 #
 # output functions
 #
 
-. colors
+. ../colors
 
 test_print() {
     echo -e "${C_BWHITE}$1${C_RESET}"
@@ -13,6 +18,7 @@ test_print() {
 test_begin() {
     TEST_CURRENT=$1 # global
     # run-tests.sh will print a message so that we will know what exactly failed
+    mkdir -p '/tmp/backup-scripts'
     echo $TEST_CURRENT > '/tmp/backup-scripts/test-current'
 }
 
@@ -58,13 +64,13 @@ use_data() {
 
     # files
     rm -rf "./$TEST_FILES_DIR"
-    # follow command line symlinks (since ./$TEST_DATA_DIR/$files_to_use
+    # follow command line symlinks (since ./data/$files_to_use
     # may be a symlink); any symbolic link that is encountered via 
     # recursive traversal will be copied as is
-    cp -aH "./$TEST_DATA_DIR/$data_to_use/files" "./$TEST_FILES_DIR"
+    cp -aH "./data/$data_to_use/files" "./$TEST_FILES_DIR"
 
     # db
-    cat "./$TEST_DATA_DIR/$data_to_use/db.sql" | $MYSQL "$TEST_DB"
+    cat "./data/$data_to_use/db.sql" | $MYSQL "$TEST_DB"
 }
 
 
@@ -106,7 +112,7 @@ restore_files() {
 
 check_files() {
     local reference=$1
-    diff -r './tmp/restored-files' "./$TEST_DATA_DIR/$reference/files"
+    diff -r './tmp/restored-files' "./data/$reference/files"
     # keep the restored-files dir for incremental restores
 }
 
@@ -158,7 +164,7 @@ restore_db() {
 check_db() {
     local reference=$1
     backup_mysql_dump "$TEST_DB" "$TEST_USER" "$TEST_PASS" "$TEST_EXCLUDE_TABLES" '' './restored.sql'
-    diff './restored.sql' "./$TEST_DATA_DIR/$reference/reference.sql"
+    diff './restored.sql' "./data/$reference/reference.sql"
     rm './restored.sql'
 }
 
@@ -169,73 +175,30 @@ check_ignore_tables() {
 }
 
 
+
 #
 # initialization
 #
 
-cleanup
+test_begin 'initialization'
+    TEST_BACKUP_DIR=${TEST_BACKUP_DIR-'local_dir'}; export TEST_BACKUP_DIR
+    TEST_FILES_DIR=${TEST_FILES_DIR-'www'}; export TEST_FILES_DIR # files to backup
+    TEST_FILES_ALIAS=${TEST_FILES_ALIAS-'test'}; export TEST_FILES_ALIAS
+    TEST_EXCLUDE_TABLES=${TEST_EXCLUDE_TABLES-'table2
+        table3'}; export TEST_EXCLUDE_TABLES # newline intended
+    TEST_SERVER=${TEST_SERVER-"`whoami`@localhost"}; export TEST_SERVER
+    TEST_SERVER_PATH=${TEST_SERVER_PATH-"`readlink -f .`/srv"}; export TEST_SERVER_PATH # server path should be absolute
 
-mkdir '/tmp/backup-scripts'
-mkdir "$TEST_SERVER_PATH"
-mkdir './tmp'
+    TEST_DB=${TEST_DB-'backup_test'}; export TEST_DB
+    TEST_USER=${TEST_USER-'root'}; export TEST_USER
+    TEST_PASS=${TEST_PASS-''}; export TEST_PASS
 
-test_end # initializing
+    MYSQL='mysql -uroot'
 
+    cleanup
 
-
-#
-# making backups
-#
-
-DATE=()
-
-test_begin 'making full backup'
-    date=`date -I`; DATE+=($date)
-    use_data '0'
-    test-backup
+    mkdir '/tmp/backup-scripts'
+    mkdir "$TEST_SERVER_PATH"
+    mkdir './tmp'
 test_end
-
-test_begin 'making incremental backup against a full backup'
-    date=`sudo date -s '+1 day' -I`; DATE+=($date)
-    use_data '1'
-    test-backup --incremental
-test_end
-
-test_begin 'making incremental backup against an incremental backup'
-    date=`sudo date -s '+1 day' -I`; DATE+=($date)
-    use_data '2'
-    test-backup --incremental
-test_end
-
-
-
-#
-# checking backups
-#
-
-check_backup() {
-    local title=$1
-    local reference=$2
-    test_begin "checking $title files"
-        restore_files "${DATE[$reference]}"
-        check_files "$reference"
-    test_end
-    test_begin "checking $title db"
-        restore_db "${DATE[$reference]}"
-        check_db "$reference"
-    test_end
-    test_begin "checking $title ignore-tables"
-        check_ignore_tables
-    test_end
-}
-
-check_backup 'full backup' '0'
-check_backup '1st incremental backup' '1'
-check_backup '2nd incremental backup' '2'
-
-
-
-sudo date -s '-2 days'
-
-cleanup
 

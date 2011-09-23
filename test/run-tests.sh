@@ -2,9 +2,6 @@
 
 . colors
 
-MY_PATH=`readlink -f "$0"`
-TEST_DIR=`dirname "$MY_PATH"`
-
 get_test_current() {
     if [[ -e '/tmp/backup-scripts/test-current' ]]; then
         cat '/tmp/backup-scripts/test-current'
@@ -12,17 +9,20 @@ get_test_current() {
     fi
 }
 
-for TEST in "$TEST_DIR"/*.sh; do
-    if [[ `readlink -f "$TEST"` != $MY_PATH ]]; then
-        TEST_NAME=`basename "$TEST"`
-        echo -e "${C_BYELLOW}Running $TEST_NAME"
+find '.' -mindepth 1 -maxdepth 1 -type d | while read test; do
+    if [[ -e "$test/test.sh" ]]; then
+        test_name=`basename "$test"`
+        echo -e "${C_BYELLOW}Running test: $test_name"
         echo -e "===================================================================${C_RESET}"
-        if ! $TEST; then
+        pushd "$CWD" > /dev/null; cd "$test"
+        ./test.sh; result=$?
+        popd > /dev/null
+        if (( $result != 0 )); then
             echo -e "${C_BRED}`get_test_current` - FAILED${C_RESET}"
-            echo -e "\n${C_BWHITE}$TEST_NAME: ${C_BRED}TEST FAILED${C_RESET}\n"
+            echo -e "\n${C_BWHITE}$test_name: ${C_BRED}TEST FAILED${C_RESET}\n"
             exit 1
         else
-            echo -e "\n${C_BWHITE}$TEST_NAME: ${C_BGREEN}TEST PASSED${C_RESET}\n"
+            echo -e "\n${C_BWHITE}$test_name: ${C_BGREEN}TEST PASSED${C_RESET}\n"
         fi
     fi
 done
