@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -e
+
+export BACKUP_DIR="/tmp/backup-scripts/$TEST_BACKUP_DIR"
+
+if [[ $1 == '--incremental' ]]; then
+    incremental_opt='--incremental'
+fi
+
+. backup-init
+
+#EXCLUDE_TABLES='karta_cache karta_cache_block karta_cache_content
+#    karta_cache_filter karta_cache_form karta_cache_menu karta_cache_page
+#    karta_cache_update karta_cache_views karta_cache_views_data karta_cache_webmarket'
+#backup-mysql kartawm backup password --exclude "$EXCLUDE_TABLES" $incremental_opt
+
+backup-mysql "$TEST_DB" "$TEST_USER" "$TEST_PASS" \
+    ${TEST_EXCLUDE_TABLES:+--exclude "$TEST_EXCLUDE_TABLES"} $incremental_opt
+backup-dar "/tmp/backup-scripts/$TEST_FILES_DIR" -a "$TEST_FILES_ALIAS" $incremental_opt
+backup-scp "$TEST_SERVER" "$TEST_SERVER_PATH"
+backup-rotate 14 > /dev/stderr
+
