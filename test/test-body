@@ -1,14 +1,19 @@
 # vim: set ft=sh:
 
+#
+# output functions
+#
+
 . colors
- 
+
 test_print() {
     echo -e "${C_BWHITE}$1${C_RESET}"
 }
 
 test_begin() {
     TEST_CURRENT=$1 # global
-    test_print "$TEST_CURRENT..."
+    # run-tests.sh will print a message so that we will know what exactly failed
+    echo $TEST_CURRENT > '/tmp/backup-scripts/test-current'
 }
 
 test_end() {
@@ -16,8 +21,21 @@ test_end() {
     echo -e "\n\n"
 }
 
+die() {
+    echo -e "${C_BRED}$1${C_RESET}"
+    exit 1
+}
+
+
+
+#
+# test functions
+#
+
 cleanup() {
     test_print 'cleanup...'
+
+    rm -rf '/tmp/backup-scripts'
 
     if [[ -e './tmp' ]]; then
         rm -r './tmp'
@@ -35,25 +53,44 @@ cleanup() {
     $MYSQL -e "CREATE DATABASE $TEST_DB DEFAULT CHARSET utf8"
 }
 
-cleanup
+use_data() {
+    local data_to_use=$1
 
-use_files() {
-    local files_to_use=$1
+    # files
     rm -rf "./$TEST_FILES_DIR"
     # follow command line symlinks (since ./$TEST_DATA_DIR/$files_to_use
     # may be a symlink); any symbolic link that is encountered via 
     # recursive traversal will be copied as is
-    cp -aH "./$TEST_DATA_DIR/$files_to_use" "./$TEST_FILES_DIR"
+    cp -aH "./$TEST_DATA_DIR/$data_to_use/files" "./$TEST_FILES_DIR"
+
+    # db
+    cat "./$TEST_DATA_DIR/$data_to_use/db.sql" | $MYSQL "$TEST_DB"
 }
 
-use_db() {
-    local sql_to_use=$1
-    cat "./$TEST_DATA_DIR/$sql_to_use" | $MYSQL "$TEST_DB"
-}
+
+
+#
+# files functions
+#
 
 restore_files() {
     local date=$1
-    local archive=$2 # e.g. "test" or "test.inc"
+    
+    # guess full/incr backup
+    local archive=$TEST_FILES_ALIAS # assume full backup by default
+    if [[ -e "$TEST_SERVER_PATH/$date/files/$TEST_FILES_ALIAS.inc.1.dar" ]]; then
+        if [[ -e "$TEST_SERVER_PATH/$date/files/$TEST_FILES_ALIAS.1.dar" ]]; then
+            die 'Two different backups in the same dir!'
+        else
+            local archive="$TEST_FILES_ALIAS.inc" # incremental backup
+        fi
+    elif [[ ! -e "$TEST_SERVER_PATH/$date/files/$TEST_FILES_ALIAS.1.dar" ]]; then
+        die 'No file backups found!'
+    fi
+
+    # actually restore
+    echo "Restoring files from $archive"
+
     # don't produce error only when there is already a "restored-files" dir
     # this is different from "mkdir -p", because it will fail when e.g. "tmp" does not exist
     if [[ ! -e './tmp/restored-files' ]]; then
@@ -68,33 +105,60 @@ restore_files() {
 }
 
 check_files() {
-    local reference_files=$1
-    diff -r './tmp/restored-files' "./$TEST_DATA_DIR/$reference_files"
+    local reference=$1
+    diff -r './tmp/restored-files' "./$TEST_DATA_DIR/$reference/files"
     # keep the restored-files dir for incremental restores
 }
 
-restore_db() {
+
+
+#
+# db functions
+#
+
+restore_db_full() {
     local date=$1
-    bunzip2 -kc "$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.bz2" > './tmp/restored-db.sql'
+
+    local sql="$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.bz2"
+    echo "Restoring db from $sql"
+    bunzip2 -kc "$sql" > './tmp/restored-db.sql'
     cat './tmp/restored-db.sql' | $MYSQL "$TEST_DB"
     # keep the restored-db.sql for incremental restores
 }
 
 restore_db_incr() {
     local date=$1
-    bunzip2 -kc "$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.inc.bz2" > './tmp/sql.inc'
+
+    local sql="$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.inc.bz2"
+    echo "Restoring db from $sql"
+    bunzip2 -kc "$sql" > './tmp/sql.inc'
     # suppress diagnostics (ed's man requires this when ed's stdin is from script)
     ed -s './tmp/restored-db.sql' < './tmp/sql.inc'
     rm './tmp/sql.inc'
     cat './tmp/restored-db.sql' | $MYSQL "$TEST_DB"
 }
 
+restore_db() {
+    local date=$1
+    if [[ -e "$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.inc.bz2" ]]; then
+        if [[ -e "$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.bz2" ]]; then
+            die 'Two different db backups in the same dir!'
+        else
+            restore_db_incr "$date"
+        fi
+    elif [[ -e "$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.bz2" ]]; then
+        restore_db_full "$date"
+    else
+        die 'No database backups found!'
+    fi
+}
+
 . "`backup-include mysql`" # for backup_mysql_dump
 
 check_db() {
-    local reference_sql=$1
+    local reference=$1
     backup_mysql_dump "$TEST_DB" "$TEST_USER" "$TEST_PASS" "$TEST_EXCLUDE_TABLES" '' './restored.sql'
-    diff './restored.sql' "./$TEST_DATA_DIR/$reference_sql"
+    diff './restored.sql' "./$TEST_DATA_DIR/$reference/reference.sql"
     rm './restored.sql'
 }
 
@@ -104,10 +168,20 @@ check_ignore_tables() {
     grep -vi 'table3' './tmp/restored-db.sql' > /dev/null
 }
 
-DATE0=`date -d '+0 days' -I`
-DATE1=`date -d '+1 days' -I`
-DATE2=`date -d '+2 days' -I`
 
+#
+# initialization
+#
+
+DATE=(
+    `date -d '+0 days' -I` 
+    `date -d '+1 days' -I`
+    `date -d '+2 days' -I`
+)
+
+cleanup
+
+mkdir '/tmp/backup-scripts'
 mkdir "$TEST_SERVER_PATH"
 mkdir './tmp'
 
@@ -115,65 +189,52 @@ test_end # initializing
 
 
 
+#
+# making backups
+#
+
 test_begin 'making full backup'
-    use_files 'test.0'
-    use_db 'backup_test.0.sql'
-    BACKUP_DATE="$DATE0" test-backup
+    use_data '0'
+    BACKUP_DATE="${DATE[0]}" test-backup
 test_end
 
 test_begin 'making incremental backup against a full backup'
-    use_files 'test.1'
-    use_db 'backup_test.1.sql'
-    BACKUP_DATE="$DATE1" test-backup --incremental
+    use_data '1'
+    BACKUP_DATE="${DATE[1]}" test-backup --incremental
 test_end
 
 test_begin 'making incremental backup against an incremental backup'
-    use_files 'test.2'
-    use_db 'backup_test.2.sql'
-    BACKUP_DATE="$DATE2" test-backup --incremental
+    use_data '2'
+    BACKUP_DATE="${DATE[2]}" test-backup --incremental
 test_end
 
 
 
+#
+# checking backups
+#
 
-test_begin 'checking full backup files'
-    restore_files "$DATE0" "$TEST_FILES_ALIAS"
-    check_files 'test.0'
-test_end
-test_begin 'checking full backup db'
-    restore_db "$DATE0"
-    check_db 'reference.0.sql'
-test_end
-test_begin 'checking full backup ignore-tables'
-    check_ignore_tables
-test_end
+check_backup() {
+    local title=$1
+    local reference=$2
+    test_begin "checking $title files"
+        restore_files "${DATE[$reference]}"
+        check_files "$reference"
+    test_end
+    test_begin "checking $title db"
+        restore_db "${DATE[$reference]}"
+        check_db "$reference"
+    test_end
+    test_begin "checking $title ignore-tables"
+        check_ignore_tables
+    test_end
+}
 
-
-
-test_begin 'checking 1st incremental backup files'
-    restore_files "$DATE1" "$TEST_FILES_ALIAS.inc"
-    check_files 'test.1'
-test_end
-test_begin 'checking 1st incremental backup db'
-    restore_db_incr "$DATE1"
-    check_db 'reference.1.sql'
-test_end
-test_begin 'checking 1st incremental backup ignore-tables'
-    check_ignore_tables
-test_end
+check_backup 'full backup' '0'
+check_backup '1st incremental backup' '1'
+check_backup '2nd incremental backup' '2'
 
 
-test_begin 'checking 2nd incremental backup files'
-    restore_files "$DATE2" "$TEST_FILES_ALIAS.inc"
-    check_files 'test.2'
-test_end
-test_begin 'checking 2nd incremental backup db'
-    restore_db_incr "$DATE2"
-    check_db 'reference.2.sql'
-test_end
-test_begin 'checking 2nd incremental backup ignore-tables'
-    check_ignore_tables
-test_end
 
 cleanup
 
