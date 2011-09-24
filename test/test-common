@@ -43,18 +43,10 @@ cleanup() {
 
     rm -rf '/tmp/backup-scripts'
 
-    if [[ -e './tmp' ]]; then
-        rm -r './tmp'
-    fi
-    if [[ -e "./$TEST_FILES_DIR" ]]; then
-        rm -r "./$TEST_FILES_DIR"
-    fi
     if [[ -e $TEST_SERVER_PATH ]]; then
         rm -r "$TEST_SERVER_PATH"
     fi
-    if [[ -e "./$TEST_BACKUP_DIR" ]]; then
-        rm -r "./$TEST_BACKUP_DIR"
-    fi
+
     $MYSQL -e "DROP DATABASE IF EXISTS $TEST_DB"
     $MYSQL -e "CREATE DATABASE $TEST_DB DEFAULT CHARSET utf8"
 }
@@ -63,11 +55,11 @@ use_data() {
     local data_to_use=$1
 
     # files
-    rm -rf "./$TEST_FILES_DIR"
+    rm -rf "/tmp/backup-scripts/$TEST_FILES_DIR"
     # follow command line symlinks (since ./data/$files_to_use
     # may be a symlink); any symbolic link that is encountered via 
     # recursive traversal will be copied as is
-    cp -aH "./data/$data_to_use/files" "./$TEST_FILES_DIR"
+    cp -aH "./data/$data_to_use/files" "/tmp/backup-scripts/$TEST_FILES_DIR"
 
     # db
     cat "./data/$data_to_use/db.sql" | $MYSQL "$TEST_DB"
@@ -99,20 +91,20 @@ restore_files() {
 
     # don't produce error only when there is already a "restored-files" dir
     # this is different from "mkdir -p", because it will fail when e.g. "tmp" does not exist
-    if [[ ! -e './tmp/restored-files' ]]; then
-        mkdir './tmp/restored-files'
+    if [[ ! -e '/tmp/backup-scripts/restored-files' ]]; then
+        mkdir '/tmp/backup-scripts/restored-files'
     fi
     if [[ $UID != 0 ]]; then
         local dar_opt=-O # ignore owner (owner can be restored only under root)
     fi
     # -w means "don't warn when overwriting files" and it must be there 
     # if we are simply restoring an archive
-    dar $dar_opt -w -x "$TEST_SERVER_PATH/$date/files/$archive" -R './tmp/restored-files'
+    dar $dar_opt -w -x "$TEST_SERVER_PATH/$date/files/$archive" -R '/tmp/backup-scripts/restored-files'
 }
 
 check_files() {
     local reference=$1
-    diff -r './tmp/restored-files' "./data/$reference/files"
+    diff -r '/tmp/backup-scripts/restored-files' "./data/$reference/files"
     # keep the restored-files dir for incremental restores
 }
 
@@ -127,8 +119,8 @@ restore_db_full() {
 
     local sql="$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.bz2"
     echo "Restoring db from $sql"
-    bunzip2 -kc "$sql" > './tmp/restored-db.sql'
-    cat './tmp/restored-db.sql' | $MYSQL "$TEST_DB"
+    bunzip2 -kc "$sql" > '/tmp/backup-scripts/restored-db.sql'
+    cat '/tmp/backup-scripts/restored-db.sql' | $MYSQL "$TEST_DB"
     # keep the restored-db.sql for incremental restores
 }
 
@@ -137,11 +129,11 @@ restore_db_incr() {
 
     local sql="$TEST_SERVER_PATH/$date/db/$TEST_DB.sql.inc.bz2"
     echo "Restoring db from $sql"
-    bunzip2 -kc "$sql" > './tmp/sql.inc'
+    bunzip2 -kc "$sql" > '/tmp/backup-scripts/sql.inc'
     # suppress diagnostics (ed's man requires this when ed's stdin is from script)
-    ed -s './tmp/restored-db.sql' < './tmp/sql.inc'
-    rm './tmp/sql.inc'
-    cat './tmp/restored-db.sql' | $MYSQL "$TEST_DB"
+    ed -s '/tmp/backup-scripts/restored-db.sql' < '/tmp/backup-scripts/sql.inc'
+    rm '/tmp/backup-scripts/sql.inc'
+    cat '/tmp/backup-scripts/restored-db.sql' | $MYSQL "$TEST_DB"
 }
 
 restore_db() {
@@ -163,15 +155,16 @@ restore_db() {
 
 check_db() {
     local reference=$1
-    backup_mysql_dump "$TEST_DB" "$TEST_USER" "$TEST_PASS" "$TEST_EXCLUDE_TABLES" '' './restored.sql'
-    diff './restored.sql' "./data/$reference/reference.sql"
-    rm './restored.sql'
+    backup_mysql_dump "$TEST_DB" "$TEST_USER" "$TEST_PASS" \
+        "$TEST_EXCLUDE_TABLES" '' '/tmp/backup-scripts/restored.sql'
+    diff '/tmp/backup-scripts/restored.sql' "./data/$reference/reference.sql"
+    rm '/tmp/backup-scripts/restored.sql'
 }
 
 check_ignore_tables() {
     # FIXME: does not work
-    grep -vi 'table2' './tmp/restored-db.sql' > /dev/null
-    grep -vi 'table3' './tmp/restored-db.sql' > /dev/null
+    grep -vi 'table2' '/tmp/backup-scripts/restored-db.sql' > /dev/null
+    grep -vi 'table3' '/tmp/backup-scripts/restored-db.sql' > /dev/null
 }
 
 
@@ -187,7 +180,7 @@ test_begin 'initialization'
     TEST_EXCLUDE_TABLES=${TEST_EXCLUDE_TABLES-'table2
         table3'}; export TEST_EXCLUDE_TABLES # newline intended
     TEST_SERVER=${TEST_SERVER-"`whoami`@localhost"}; export TEST_SERVER
-    TEST_SERVER_PATH=${TEST_SERVER_PATH-"`readlink -f .`/srv"}; export TEST_SERVER_PATH # server path should be absolute
+    TEST_SERVER_PATH=${TEST_SERVER_PATH-"/tmp/backup-scripts/srv"}; export TEST_SERVER_PATH # server path should be absolute
 
     TEST_DB=${TEST_DB-'backup_test'}; export TEST_DB
     TEST_USER=${TEST_USER-'root'}; export TEST_USER
@@ -199,6 +192,5 @@ test_begin 'initialization'
 
     mkdir '/tmp/backup-scripts'
     mkdir "$TEST_SERVER_PATH"
-    mkdir './tmp'
 test_end
 
